@@ -355,7 +355,7 @@ def b2b_data(turbine_data):
         tecx2[4*i+3] = [j+x0ro for j in TEcx2]
         tecy2[4*i+3] = [j+Cxro*ptcro for j in TEcy2]
 
-    return scale*xp, scale*yp, scale*xs, scale*ys, scale*tecx, scale*tecy, scale*tecx2, scale*tecy2
+    return scale*xp, scale*yp, scale*xs, scale*ys, scale*tecx, scale*tecy, scale*tecx2, scale*tecy2, scale
 
 def b2b_plot(turbine_data):
     """Plot blade-to-blade profiles for the whole turbine"""
@@ -390,6 +390,7 @@ def b2b_variable(turbine_data):
     ptc02 = ptoC[-1]
     #Use function to get data for b2b plot
     data = b2b_data(turbine_data)
+    scale = data[8]
     #Initialise plots
     fig, ax = plt.subplots()
     plt.subplots_adjust(bottom=0.25)
@@ -468,7 +469,11 @@ def b2b_variable(turbine_data):
             angle_max.color = 'g'
             angle_max.hovercolor = 'g'
         #Update the figure
-        ax.set_xbound
+        Cxst1 = new_turbine[5][0][3]
+        Cxron = new_turbine[5][-1][4]
+        Cxmax = np.amax([i[3] for i in new_turbine[5]])
+        ax.set_xbound(np.amin(data[0])-scale*Cxst1, np.amax(data[0])+scale*Cxron)
+        ax.set_ybound(np.amin(data[1])-scale*Cxmax, np.amax(data[1])+scale*Cxmax)
         fig.canvas.draw_idle()
     #When any of the sliders are changed, update the graph
     sphi1.on_changed(update)
@@ -560,5 +565,3 @@ def annulus(turbine_data, close=True, scale=True):
         plt.ylabel('Radius (m)')
         plt.ylim(0, 1.1*np.amax(r_cas))
         plt.show()
-
-    return x, r_hub, r_cas

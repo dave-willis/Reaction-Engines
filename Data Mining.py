@@ -66,9 +66,9 @@ print('Volume = {} m^3'.format(result[3]))
 print('No. Blades = {}'.format(int(result[6])))
 print('')
 if plot == 'yes':
-    b2b_variable(result)
+#    b2b_variable(result)
 #    b2b_plot(result)
-#    annulus(result)
+    annulus(result)
 
 
 if calcs == 'brute force':
