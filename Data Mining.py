@@ -66,7 +66,7 @@ print('Volume = {} m^3'.format(result[3]))
 print('No. Blades = {}'.format(int(result[6])))
 print('')
 if plot == 'yes':
-    b2b_variable(result)
+    b2b_variable(result[11])
 #    b2b_plot(result)
 #    annulus(result)
 
@@ -80,9 +80,9 @@ if calcs == 'brute force':
 #    Lambda = [0.5, 0.5, 0.5]
 #    dh_set = np.arange(1, 2, 0.25)
 #    
-#    phis = np.empty([len(phi_set)**3,3])
-#    psis = np.empty([len(psi_set)**3,3])
-#    dhs = np.empty([len(dh_set)**3-len(dh_set)+1,3])
+#    phis = np.zeros([len(phi_set)**3,3])
+#    psis = np.zeros([len(psi_set)**3,3])
+#    dhs = np.zeros([len(dh_set)**3-len(dh_set)+1,3])
 #    
 #    n_phi = 0
 #    for i in phi_set:
@@ -111,9 +111,9 @@ if calcs == 'brute force':
     Lambda = [0.5, 0.5]
     dh_set = np.arange(1, 1.2, 0.02)
     
-    phis = np.empty([len(phi_set)**2,2])
-    psis = np.empty([len(psi_set)**2,2])
-    dhs = np.empty([len(dh_set),2])
+    phis = np.zeros([len(phi_set)**2,2])
+    psis = np.zeros([len(psi_set)**2,2])
+    dhs = np.zeros([len(dh_set),2])
     
     n_phi = 0
     for i in phi_set:

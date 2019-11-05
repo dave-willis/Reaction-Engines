@@ -284,22 +284,25 @@ def b2b_data(turbine_data):
     chords = [[i[3], i[4]] for i in turbine_data[5]]
     ptcs = [[i[5], i[6]] for i in turbine_data[5]]
     t = turbine_data[11][5]
+    n = turbine_data[11][12]
     #Number of points per blade plot
     points = 500
     #Scale the outputs for m/cm/mm etc
     scale = 1000
     #Initialise values
     l = 0
-    xp = np.empty([4*len(angs), points])
-    yp = np.empty([4*len(angs), points])
-    xs = np.empty([4*len(angs), points])
-    ys = np.empty([4*len(angs), points])
-    tecx = np.empty([4*len(angs), points])
-    tecy = np.empty([4*len(angs), points])
-    tecx2 = np.empty([4*len(angs), points])
-    tecy2 = np.empty([4*len(angs), points])
+    #Array size set by the maximum number of stages
+    max_stages = 50
+    xp = np.zeros([4*max_stages, points])
+    yp = np.zeros([4*max_stages, points])
+    xs = np.zeros([4*max_stages, points])
+    ys = np.zeros([4*max_stages, points])
+    tecx = np.zeros([4*max_stages, points])
+    tecy = np.zeros([4*max_stages, points])
+    tecx2 = np.zeros([4*max_stages, points])
+    tecy2 = np.zeros([4*max_stages, points])
     #Loop over every stage
-    for i in range(len(angs)):
+    for i in range(n):
         #Extract stage parameters
         a1, a2, b2, b3 = [j for j in angs[i]]
         Cxst, Cxro = [j for j in chords[i]]
@@ -362,19 +365,24 @@ def b2b_plot(turbine_data):
 
     #Use data from turbine function to get data for profiles
     data = b2b_data(turbine_data)
+    #Find the number of stages to plot
+    n = turbine_data[11][12]
     #Plot each bit of data, which are in the form of 2D arrays
     plt.figure()
     for i in range(4):
-        plt.plot(data[2*i].T, data[2*i+1].T, 'black', lw=2)
+        plt.plot(data[2*i][:4*n].T, data[2*i+1][:4*n].T, 'black', lw=2)
     plt.axis('equal')
     plt.xlabel('Distance along turbine (mm)')
     plt.ylabel('Tangential distance (mm)')
     plt.show()
 
-def b2b_variable(turbine_data):
+def b2b_variable(start = [145*10**5, 950, 16, 710.21, 17*10**6, 0.0003, 0.0003, 0.35, 1.1, 0.5, 1, 1, 10, 1, 0]):
     """Plot blade-to-blade profiles with variable loadings"""
 
-    #Extract parameters from turbine data
+    #Run the parameters through the turbine function for initial setup
+    Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, a1i = start
+    turbine_data = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, a1i)
+    #Extract new parameters
     Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, a1i = turbine_data[11]
     phi01 = phi[0]
     phi02 = phi[-1]
@@ -402,8 +410,8 @@ def b2b_variable(turbine_data):
     te1 = plt.plot(data[4].T, data[5].T, 'black', lw=2)
     te2 = plt.plot(data[6].T, data[7].T, 'black', lw=2)
     plt.axis('equal')
-    ax.set_xbound(np.amin(data[0])-scale*Cxst1, np.amax(data[0])+scale*Cxron)
-    ax.set_ybound(np.amin(data[1])-scale*Cxmax, np.amax(data[1])+scale*Cxmax)
+    ax.set_xbound(np.amin(data[0][:4*n])-scale*Cxst1, np.amax(data[0][:4*n])+scale*Cxron)
+    ax.set_ybound(np.amin(data[1][:4*n])-scale*Cxmax, np.amax(data[1][:4*n])+scale*Cxmax)
     plt.xlabel('Distance along turbine (mm)')
     plt.ylabel('Tangential distance (mm)')
     #Create axes for position of sliders [left, bottom, width, height]
@@ -446,6 +454,7 @@ def b2b_variable(turbine_data):
     Wax = plt.axes([0.42, 0.9, 0.03, 0.04])
     tax = plt.axes([0.5, 0.9, 0.03, 0.04])
     gax = plt.axes([0.58, 0.9, 0.03, 0.04])
+    nax = plt.axes([0.66, 0.9, 0.03, 0.04])
     Po1box = TextBox(Po1ax, '$P_{01}$ (bar) ', '{}'.format(Po1/10**5), color='1.0')
     To1box = TextBox(To1ax, '$T_{01}$ (K) ', '{}'.format(To1), color='1.0')
     mdotbox = TextBox(mdotax, '$\dot{m}$ (kg/s) ', '{}'.format(mdot), color='1.0')
@@ -453,6 +462,7 @@ def b2b_variable(turbine_data):
     Wbox = TextBox(Wax, '$\dot{W}$ (MW) ', '{}'.format(W/10**6), color='1.0')
     tbox = TextBox(tax, '$t_{TE}$ (mm) ', '{}'.format(t*10**3), color='1.0')
     gbox = TextBox(gax, '$g$ (mm) ', '{}'.format(g*10**3), color='1.0')
+    nbox = TextBox(nax, '$n_{stages}$ ', '{}'.format(n), color='1.0')
     #Update the figure and text when the sliders are changed
     def update(val):
         """Update the plots"""
@@ -470,6 +480,7 @@ def b2b_variable(turbine_data):
         W = float(Wbox.text)*10**6
         t = float(tbox.text)/10**3
         g = float(gbox.text)/10**3
+        n = int(float(nbox.text))
         Po1box.stop_typing()
         To1box.stop_typing()
         mdotbox.stop_typing()
@@ -477,6 +488,7 @@ def b2b_variable(turbine_data):
         Wbox.stop_typing()
         tbox.stop_typing()
         gbox.stop_typing()
+        nbox.stop_typing()
         #Recalculate turbine performance
         new_turbine = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, a1i)
         #Get new profile data
@@ -508,8 +520,8 @@ def b2b_variable(turbine_data):
         Cxst1 = new_turbine[5][0][3]
         Cxron = new_turbine[5][-1][4]
         Cxmax = np.amax([i[3] for i in new_turbine[5]])
-        ax.set_xbound(np.amin(data[0])-scale*Cxst1, np.amax(data[0])+scale*Cxron)
-        ax.set_ybound(np.amin(data[1])-scale*Cxmax, np.amax(data[1])+scale*Cxmax)
+        ax.set_xbound(np.amin(data[0][:4*n])-scale*Cxst1, np.amax(data[0][:4*n])+scale*Cxron)
+        ax.set_ybound(np.amin(data[1][:4*n])-scale*Cxmax, np.amax(data[1][:4*n])+scale*Cxmax)
         fig.canvas.draw_idle()
     #When any of the sliders are changed, update the figure
     sphi1.on_changed(update)
@@ -532,6 +544,7 @@ def b2b_variable(turbine_data):
     Wbox.on_submit(update)
     tbox.on_submit(update)
     gbox.on_submit(update)
+    nbox.on_submit(update)
     #Reset button to return sliders to initial values
     resetax = plt.axes([0.47, 0.05, 0.08, 0.04])
     reset_button = Button(resetax, 'Reset', color='1.0', hovercolor='0.5')
@@ -557,6 +570,7 @@ def b2b_variable(turbine_data):
         Wbox.set_val(W/10**6)
         tbox.set_val(t*10**3)
         gbox.set_val(g*10**3)
+        nbox.set_val(n)
     reset_button.on_clicked(reset)
     reset_button.on_clicked(update)
     #Button that sets the exit loading equal to inlet to create repeating stages
