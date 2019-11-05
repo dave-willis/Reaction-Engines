@@ -48,7 +48,7 @@ psi = [1.065, 1.067]
 Lambda = [0.496, 0.527]
 AR = [1.0, 1.0]
 ptc = [1.067, 1.058]
-n = 10
+n = 5
 dho = [1.002, 1.008]
 
 calcs = ''
@@ -66,9 +66,9 @@ print('Volume = {} m^3'.format(result[3]))
 print('No. Blades = {}'.format(int(result[6])))
 print('')
 if plot == 'yes':
-    b2b_variable(result[11])
+#    b2b_variable(result[11])
 #    b2b_plot(result)
-#    annulus(result)
+    annulus(result)
 
 
 if calcs == 'brute force':
@@ -182,8 +182,6 @@ if calcs == 'opt':
     Omega = 6782*2*np.pi/60
     t = 0.0003
     g = 0.0003
-    
-    n = 5
     
     phi0 = 0.35
     psi0 = 1.1

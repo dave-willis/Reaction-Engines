@@ -304,9 +304,9 @@ def b2b_data(turbine_data):
     #Loop over every stage
     for i in range(n):
         #Extract stage parameters
-        a1, a2, b2, b3 = [j for j in angs[i]]
-        Cxst, Cxro = [j for j in chords[i]]
-        ptcst, ptcro = [j for j in ptcs[i]]
+        a1, a2, b2, b3 = angs[i]
+        Cxst, Cxro = chords[i]
+        ptcst, ptcro = ptcs[i]
         #Determine start point depending on b2b spacing
         if i == 0:
             x0st = 0
@@ -376,7 +376,7 @@ def b2b_plot(turbine_data):
     plt.ylabel('Tangential distance (mm)')
     plt.show()
 
-def b2b_variable(start = [145*10**5, 950, 16, 710.21, 17*10**6, 0.0003, 0.0003, 0.35, 1.1, 0.5, 1, 1, 10, 1, 0]):
+def b2b_variable(start=[145*10**5, 950, 16, 710.21, 17*10**6, 0.0003, 0.0003, 0.35, 1.1, 0.5, 1, 1, 10, 1, 0]):
     """Plot blade-to-blade profiles with variable loadings"""
 
     #Run the parameters through the turbine function for initial setup
@@ -458,7 +458,7 @@ def b2b_variable(start = [145*10**5, 950, 16, 710.21, 17*10**6, 0.0003, 0.0003, 
     Po1box = TextBox(Po1ax, '$P_{01}$ (bar) ', '{}'.format(Po1/10**5), color='1.0')
     To1box = TextBox(To1ax, '$T_{01}$ (K) ', '{}'.format(To1), color='1.0')
     mdotbox = TextBox(mdotax, '$\dot{m}$ (kg/s) ', '{}'.format(mdot), color='1.0')
-    Omegabox = TextBox(Omegaax, '$\Omega$ (rpm) ', '{}'.format(np.round(Omega*60/(2*np.pi),0)), color='1.0')
+    Omegabox = TextBox(Omegaax, '$\Omega$ (rpm) ', '{}'.format(np.round(Omega*60/(2*np.pi), 0)), color='1.0')
     Wbox = TextBox(Wax, '$\dot{W}$ (MW) ', '{}'.format(W/10**6), color='1.0')
     tbox = TextBox(tax, '$t_{TE}$ (mm) ', '{}'.format(t*10**3), color='1.0')
     gbox = TextBox(gax, '$g$ (mm) ', '{}'.format(g*10**3), color='1.0')
@@ -590,45 +590,93 @@ def b2b_variable(start = [145*10**5, 950, 16, 710.21, 17*10**6, 0.0003, 0.0003, 
     repeatingax._button = repeating_button
     resetax._button = reset_button
 
-def annulus(turbine_data, close=True, scale=True):
-    """Plot annulus size for stators through the turbine, return the plotting points"""
+def annulus(turbine_data):
+    """Plot annulus size through the turbine, return the plotting points"""
 
     #Extract values form turbine function output
     chords = [[i[3], i[4]] for i in turbine_data[5]]
     Hst = [i[1] for i in turbine_data[5]]
     rm = [i[0] for i in turbine_data[5]]
+    n = turbine_data[11][12]
     #Initialise lists
     l = 0
     x = []
     r_hub = []
     r_cas = []
     #Loop over every stage
-    for i in range(len(rm)):
+    fig, ax = plt.subplots()
+    for i in range(n):
         #Extract stage parameters
-        Cxst, Cxro = [j for j in chords[i]]
-        #Calculate the length along the turbine
+        Cxst, Cxro = chords[i]
+        #Add the position to the array
         if i == 0:
-            l += Cxst*1.25+Cxro*1.5
-        l += Cxst*1.5+Cxro*1.5
-        x.append(l)
+            x.append(l)
+        else:
+            x.append(l+Cxst*0.25)
         #Calculate the hub and case radii
         r_hub.append(rm[i]-Hst[i]/2)
         r_cas.append(rm[i]+Hst[i]/2)
+        #Calculate the length along the turbine
+        #First stage
+        if n > 1 and i == 0:
+            l += Cxst*1.25+Cxro*1.5
+        #Add an extra length for the final stage
+        elif i == n-1:
+            l += Cxst*1.5+Cxro*1.25
+            x.append(l)
+            r_hub.append((r_hub[i]-r_hub[i-1])/(x[i]-x[i-1])*(x[i+1]-x[i])+r_hub[i])
+            r_cas.append((r_cas[i]-r_cas[i-1])/(x[i]-x[i-1])*(x[i+1]-x[i])+r_cas[i])
+        else:
+            l += Cxst*1.5+Cxro*1.5
+    #Plot blades
+    for i in range(n):
+        #Extract stage parameters
+        Cxst, Cxro = chords[i]
+        #Calculate the positions of the mid-stage points by interpolation
+        y1_cas = r_cas[i]
+        y1_hub = r_hub[i]
+        y2_cas = r_cas[i]+Cxst/(x[i+1]-x[i])*(r_cas[i+1]-r_cas[i])
+        y2_hub = r_hub[i]+Cxst/(x[i+1]-x[i])*(r_hub[i+1]-r_hub[i])
+        y3_cas = r_cas[i]+(1.25*Cxst+0.25*Cxro)/(x[i+1]-x[i])*(r_cas[i+1]-r_cas[i])
+        y3_hub = r_hub[i]+(1.25*Cxst+0.25*Cxro)/(x[i+1]-x[i])*(r_hub[i+1]-r_hub[i])
+        y4_cas = r_cas[i]+(1.25*Cxst+1.25*Cxro)/(x[i+1]-x[i])*(r_cas[i+1]-r_cas[i])
+        y4_hub = r_hub[i]+(1.25*Cxst+1.25*Cxro)/(x[i+1]-x[i])*(r_hub[i+1]-r_hub[i])
+        x1 = x[i]
+        x2 = x[i]+Cxst
+        x3 = x[i]+1.25*Cxst+0.25*Cxro
+        x4 = x[i]+1.25*Cxst+1.25*Cxro
+        #Plot lines for the blades
+        plt.plot([x1, x1], [y1_hub, y1_cas], 'grey', lw=0.5)
+        plt.plot([x2, x2], [y2_hub, y2_cas], 'grey', lw=0.5)
+        plt.plot([x1, x2], [y1_hub, y2_cas], 'grey', lw=0.5)
+        plt.plot([x1, x2], [y1_cas, y2_hub], 'grey', lw=0.5)
+        plt.plot([x3, x3], [y3_hub, y3_cas], 'grey', lw=0.5)
+        plt.plot([x4, x4], [y4_hub, y4_cas], 'grey', lw=0.5)
+        plt.plot([x3, x4], [y3_hub, y4_cas], 'grey', lw=0.5)
+        plt.plot([x3, x4], [y3_cas, y4_hub], 'grey', lw=0.5)
     #Plot the results
-    if close:
-        plt.figure()
-        plt.plot(x, r_hub, label='Hub')
-        plt.plot(x, r_cas, label='Casing')
-        plt.xlabel('Length along turbine (m)')
-        plt.ylabel('Radius (m)')
-        plt.legend()
-        plt.show()
-    if scale:
-        plt.figure()
-        plt.plot(x, r_hub, label='Hub', linewidth=0.5)
-        plt.plot(x, r_cas, label='Casing', linewidth=0.5)
-        plt.xlabel('Length along turbine (m)')
-        plt.ylabel('Radius (m)')
-        plt.ylim(0, 1.1*np.amax(r_cas))
-        plt.legend()
-        plt.show()
+    plt.plot(x, r_hub, label='Hub', linewidth=0.5)
+    plt.plot(x, r_cas, label='Casing', linewidth=0.5)
+    plt.xlabel('Length along turbine (m)')
+    plt.ylabel('Radius (m)')
+    plt.axis('equal')
+    ax.set_ybound(0, 1.05*np.amax(r_cas))
+    ax.set_xbound(0, x[-1])
+    #Zoom button
+    zoomax = plt.axes([0.4, 0.9, 0.08, 0.04])
+    zoom_button = Button(zoomax, 'Zoom', color='1.0', hovercolor='0.5')
+    resetax = plt.axes([0.5, 0.9, 0.08, 0.04])
+    reset_button = Button(resetax, 'Reset', color='1.0', hovercolor='0.5')
+    def zoom(val):
+        """Zoom in on annulus"""
+        ax.axis('auto')
+    def reset(val):
+        """Reset view"""
+        ax.axis('equal')
+        ax.set_ybound(0, 1.05*np.amax(r_cas))
+        ax.set_xbound(0, x[-1])
+    zoom_button.on_clicked(zoom)
+    reset_button.on_clicked(reset)
+    zoomax._button = zoom_button
+    resetax._button = reset_button
+    plt.show()

@@ -449,7 +449,7 @@ def velocities(angs, Vx):
     """ Return the velocities for the specified angles"""
 
     #Extract angles from array
-    a1, a2, b2, a3, b3 = [i for i in angs]
+    a1, a2, b2, a3, b3 = angs
     #Calculate velocities
     V1 = Vx/np.cos(a1)
     V2 = Vx/np.cos(a2)
