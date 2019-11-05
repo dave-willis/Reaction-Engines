@@ -10,10 +10,10 @@ from scipy import interpolate as sciint
 ###MAIN TURBINE ROUTINE###
 ##########################
 
-def turbine(Po1, To1, mdot, Omega, phi, psi, Lambda, AR, W, dho, n, t, g, ptoC=-1, a1i=0):
+def turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc=-1, a1i=0):
     """Return the turbine performance and sizing"""
 
-    #If the inputs for phi, psi, Lambda, dho, AR, or ptoC ints or floats, assume they're
+    #If the inputs for phi, psi, Lambda, dho, AR, or ptc ints or floats, assume they're
     #constant through the turbine
     if isinstance(phi, (float, int)):
         phi = [phi, phi]
@@ -25,10 +25,23 @@ def turbine(Po1, To1, mdot, Omega, phi, psi, Lambda, AR, W, dho, n, t, g, ptoC=-
         dho = [dho, dho]
     if isinstance(AR, (float, int)):
         AR = [AR, AR]
-    if isinstance(ptoC, (float, int)):
-        ptoC = [ptoC, ptoC]
+    if isinstance(ptc, (float, int)):
+        ptc = [ptc, ptc]
+    #Ensure the inputs aren't longer than the number of stages, if they are cut them off
+    if len(phi) > n:
+        phi = phi[:n]
+    if len(psi) > n:
+        psi = psi[:n]
+    if len(Lambda) > n:
+        Lambda = Lambda[:n]
+    if len(dho) > n:
+        dho = dho[:n]
+    if len(AR) > n:
+        AR = AR[:n]
+    if len(ptc) > n:
+        ptc = ptc[:n]
     #Store the inputs for later use
-    inits = [Po1, To1, mdot, Omega, phi, psi, Lambda, AR, W, dho, n, t, g, ptoC, a1i]
+    inits = [Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, a1i]
     #If all loadings are constant treat as repeating stages
     rep = False
     if all(i == phi[0] for i in phi) and all(i == psi[0] for i in psi) and all(i == Lambda[0] for i in Lambda):
@@ -43,7 +56,7 @@ def turbine(Po1, To1, mdot, Omega, phi, psi, Lambda, AR, W, dho, n, t, g, ptoC=-
         Lambda = spline(n, Lambda)
         dho = spline(n, dho)
         AR = spline(n, AR)
-        ptoC = spline(n, ptoC)
+        ptc = spline(n, ptc)
         #Scale the enthalpy drops to ensure the total work is as desired
         sum_dho = sum(dho)
         dho = [W/(mdot*sum_dho)*i for i in dho]
@@ -93,7 +106,7 @@ def turbine(Po1, To1, mdot, Omega, phi, psi, Lambda, AR, W, dho, n, t, g, ptoC=-
         #Create size array
         sizes = [t, g, r]
         #Create array of parameters needed for the stage
-        params = [mdot, U, Vx, psi[i], phi[i], Lambda[i], a1i, AR[i], ptoC[i], rep]
+        params = [mdot, U, Vx, psi[i], phi[i], Lambda[i], a1i, AR[i], ptc[i], rep]
         #Update the input conditions for the next stage
         Poin = Poi
         Toin = Toi
@@ -139,27 +152,27 @@ def stage(Po1, To1, del_ho, params, sizes, gas_props):
     """Return the stage losses and exit conditions"""
 
     #Gas properties
-    cp, gamma, R = [i for i in gas_props]
+    cp, gamma, R = gas_props
     #Stage parameters
-    mdot, U, Vx, psi, phi, Lambda, a1, AR, ptoC, rep = [i for i in params]
+    mdot, U, Vx, psi, phi, Lambda, a1, AR, ptc, rep = params
     #Set the angle function:
     if rep:
         find_angs = repeating
     else:
         find_angs = angles
     #Major sizes
-    t, g, r = [i for i in sizes]
+    t, g, r = sizes
     #Initial guess for the stage work output accounting for tip leakage
     work = del_ho#*0.95
     #Iterate until the stage produces the requird work
 #    while work/del_ho < 0.999 or work/del_ho > 1.001:
 #        psi = psi*del_ho/work
     #Calculate angles
-    a1, a2, b2, a3, b3 = [i for i in find_angs(phi, psi, Lambda, a1)]
+    a1, a2, b2, a3, b3 = find_angs(phi, psi, Lambda, a1)
     #Create array of angles needed in the loss function
     angs = [a1, a2, b2, b3]
     #Calculate velocities
-    V1, V2, W2, V3, W3 = [i for i in velocities([a1, a2, b2, a3, b3], Vx)]
+    V1, V2, W2, V3, W3 = velocities([a1, a2, b2, a3, b3], Vx)
     #Create array of velocities needed in the loss function
     vels = [V1, V2, W2, W3]
     #Temperatures, speed of sound and viscosity through the stage
@@ -210,8 +223,8 @@ def stage(Po1, To1, del_ho, params, sizes, gas_props):
         H_ro = (H2+H3)/2
         Cx_st = H_st/AR
         Cx_ro = H_ro/AR
-        w_st = p_w(Cx_st, a1, a2, ptoC)[0]
-        w_ro = p_w(Cx_ro, b2, b3, ptoC)[0]
+        w_st = p_w(Cx_st, a1, a2, ptc)[0]
+        w_ro = p_w(Cx_ro, b2, b3, ptc)[0]
         #Create array for the loss function
         dimensions = [t, g, r, H_st, H_ro, Cx_st, Cx_ro, w_st, w_ro]
         #Find the losses across the stator and rotor
@@ -234,8 +247,8 @@ def stage(Po1, To1, del_ho, params, sizes, gas_props):
     vol_st = np.pi*Cx_st*(0.25*((r+H1/2)**2)+((r+(H1+H2)/4)**2)+0.25*(r+H2/2)**2)
     vol_ro = np.pi*Cx_ro*(0.25*((r+H2/2)**2)+((r+(H2+H3)/4)**2)+0.25*(r+H3/2)**2)
     volume = vol_st + vol_ro
-    ptc_st = p_w(Cx_st, a1, a2, ptoC)[1]
-    ptc_ro = p_w(Cx_ro, b2, b3, ptoC)[1]
+    ptc_st = p_w(Cx_st, a1, a2, ptc)[1]
+    ptc_ro = p_w(Cx_ro, b2, b3, ptc)[1]
     dimensions.append(ptc_st)
     dimensions.append(ptc_ro)
     #Stage mass
@@ -257,9 +270,9 @@ def free_vortex(angs, size, phi):
     """Return the hub, midspan and tip metal angles for a free vortex stage"""
 
     #Pull angles out of the array, converting them to radians
-    a1, a2, b2, a3, b3 = [np.radians(i) for i in angs]
+    a1, a2, b2, a3, b3 = np.radians(angs)
     #Pull out radius and spans
-    r, hst, hro = [i for i in size]
+    r, hst, hro = size
     #Free vortex has constant Vx so keeping rVt constant is simple
     a1h = np.arctan(r*np.tan(a1)/(r-hst/2))
     a1t = np.arctan(r*np.tan(a1)/(r+hst/2))
@@ -292,10 +305,10 @@ def losses(angs, vels, states, dimensions):
     """Return the entropy rises for given inputs in Stage"""
 
     #Create values from input arrays
-    a1, a2, b2, b3 = [i for i in angs]
-    V1, V2, W2, W3 = [i for i in vels]
-    T1, T2, T3, rho1, rho2, rho3, mu2, mu3, mdot = [i for i in states]
-    t, g, r, H_st, H_ro, Cx_st, Cx_ro, w_st, w_ro = [i for i in dimensions]
+    a1, a2, b2, b3 = angs
+    V1, V2, W2, W3 = vels
+    T1, T2, T3, rho1, rho2, rho3, mu2, mu3, mdot = states
+    t, g, r, H_st, H_ro, Cx_st, Cx_ro, w_st, w_ro = dimensions
     #Calculate tip clearance effect first so that mass flow can be
     #accounted for in profile and trailing edge loss
     TC_calcs_st = TC(g, H_st, a1, a2, V2, T2)
@@ -395,7 +408,7 @@ def TC(g, H, a1, a2, V2, T):
 
     Cc = 0.6 #Fix the shroud contraction coefficient
     #Calculate the leakage mass flow fraction
-    m = g*Cc*np.sqrt((1/np.cos(a2))**2-np.tan(a1)**2)/H
+    m = g*Cc*np.sqrt(abs((1/np.cos(a2))**2-np.tan(a1)**2))/H
     #Calculate the entropy rise
     entropy = m*(V2**2)*(1-np.tan(a1)*(np.sin(a2)**2)/np.tan(a2))/T
 

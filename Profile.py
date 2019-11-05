@@ -283,7 +283,7 @@ def b2b_data(turbine_data):
     angs = [[i[0], i[1], i[2], i[4]] for i in turbine_data[10]]
     chords = [[i[3], i[4]] for i in turbine_data[5]]
     ptcs = [[i[5], i[6]] for i in turbine_data[5]]
-    t = turbine_data[11][11]
+    t = turbine_data[11][5]
     #Number of points per blade plot
     points = 500
     #Scale the outputs for m/cm/mm etc
@@ -375,7 +375,7 @@ def b2b_variable(turbine_data):
     """Plot blade-to-blade profiles with variable loadings"""
 
     #Extract parameters from turbine data
-    Po1, To1, mdot, Omega, phi, psi, Lambda, AR, W, dho, n, t, g, ptoC, a1i = turbine_data[11]
+    Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, a1i = turbine_data[11]
     phi01 = phi[0]
     phi02 = phi[-1]
     psi01 = psi[0]
@@ -386,11 +386,14 @@ def b2b_variable(turbine_data):
     dho02 = dho[-1]
     AR01 = AR[0]
     AR02 = AR[-1]
-    ptc01 = ptoC[0]
-    ptc02 = ptoC[-1]
+    ptc01 = ptc[0]
+    ptc02 = ptc[-1]
     #Use function to get data for b2b plot
     data = b2b_data(turbine_data)
     scale = data[8]
+    Cxst1 = turbine_data[5][0][3]
+    Cxron = turbine_data[5][-1][4]
+    Cxmax = np.amax([i[3] for i in turbine_data[5]])
     #Initialise plots
     fig, ax = plt.subplots()
     plt.subplots_adjust(bottom=0.25)
@@ -399,9 +402,11 @@ def b2b_variable(turbine_data):
     te1 = plt.plot(data[4].T, data[5].T, 'black', lw=2)
     te2 = plt.plot(data[6].T, data[7].T, 'black', lw=2)
     plt.axis('equal')
+    ax.set_xbound(np.amin(data[0])-scale*Cxst1, np.amax(data[0])+scale*Cxron)
+    ax.set_ybound(np.amin(data[1])-scale*Cxmax, np.amax(data[1])+scale*Cxmax)
     plt.xlabel('Distance along turbine (mm)')
     plt.ylabel('Tangential distance (mm)')
-    #Create axes for position of sliders [left, bottom, height, width]
+    #Create axes for position of sliders [left, bottom, width, height]
     axphi1 = plt.axes([0.12, 0.16, 0.3, 0.02])
     axphi2 = plt.axes([0.6, 0.16, 0.3, 0.02])
     axpsi1 = plt.axes([0.12, 0.13, 0.3, 0.02])
@@ -421,30 +426,59 @@ def b2b_variable(turbine_data):
     spsi2 = Slider(axpsi2, '$\psi_2$', 0.5, 2.5, valinit=psi02)
     sLambda1 = Slider(axLambda1, '$\Lambda_1$', 0.01, 0.99, valinit=Lambda01)
     sLambda2 = Slider(axLambda2, '$\Lambda_2$', 0.01, 0.99, valinit=Lambda02)
-    sdho1 = Slider(axdho1, '$\Delta h_{o1}$', 1, 3, valinit=dho01)
-    sdho2 = Slider(axdho2, '$\Delta h_{o2}$', 1, 3, valinit=dho02)
+    sdho1 = Slider(axdho1, '$\Delta h_{01}$', 1, 3, valinit=dho01)
+    sdho2 = Slider(axdho2, '$\Delta h_{02}$', 1, 3, valinit=dho02)
     sAR1 = Slider(axAR1, '$AR_1$', 0.9, 2.0, valinit=AR01)
     sAR2 = Slider(axAR2, '$AR_2$', 0.9, 2.0, valinit=AR02)
     sptc1 = Slider(axptc1, '$p/C_1$', 0.5, 1.5, valinit=ptc01)
     sptc2 = Slider(axptc2, '$p/C_2$', 0.5, 1.5, valinit=ptc02)
     #Text box showing turbine efficiency
-    effax = plt.axes([0.85, 0.9, 0.09, 0.04])
+    effax = plt.axes([0.85, 0.9, 0.087, 0.04])
     eff = TextBox(effax, '', 'Efficiency: {}%'.format(np.round(100*turbine_data[0], 2)), color='1.0')
     #Text box showing maximum angle
     angle_maxax = plt.axes([0.72, 0.9, 0.11, 0.04])
     angle_max = TextBox(angle_maxax, '', 'Maximum angle: {}º'.format(np.round(turbine_data[12][1], 2)), color='g', hovercolor='g')
-    #Update the graphs and buttons when the sliders are changed
+    #Text boxes that allow for other inputs to be changed
+    Po1ax = plt.axes([0.1, 0.9, 0.03, 0.04])
+    To1ax = plt.axes([0.18, 0.9, 0.03, 0.04])
+    mdotax = plt.axes([0.26, 0.9, 0.03, 0.04])
+    Omegaax = plt.axes([0.34, 0.9, 0.035, 0.04])
+    Wax = plt.axes([0.42, 0.9, 0.03, 0.04])
+    tax = plt.axes([0.5, 0.9, 0.03, 0.04])
+    gax = plt.axes([0.58, 0.9, 0.03, 0.04])
+    Po1box = TextBox(Po1ax, '$P_{01}$ (bar) ', '{}'.format(Po1/10**5), color='1.0')
+    To1box = TextBox(To1ax, '$T_{01}$ (K) ', '{}'.format(To1), color='1.0')
+    mdotbox = TextBox(mdotax, '$\dot{m}$ (kg/s) ', '{}'.format(mdot), color='1.0')
+    Omegabox = TextBox(Omegaax, '$\Omega$ (rpm) ', '{}'.format(np.round(Omega*60/(2*np.pi),0)), color='1.0')
+    Wbox = TextBox(Wax, '$\dot{W}$ (MW) ', '{}'.format(W/10**6), color='1.0')
+    tbox = TextBox(tax, '$t_{TE}$ (mm) ', '{}'.format(t*10**3), color='1.0')
+    gbox = TextBox(gax, '$g$ (mm) ', '{}'.format(g*10**3), color='1.0')
+    #Update the figure and text when the sliders are changed
     def update(val):
         """Update the plots"""
-        #Update the inputs with the slider values
+        #Update the inputs with the slider and textbox values
         phi = [sphi1.val, sphi2.val]
         psi = [spsi1.val, spsi2.val]
         Lambda = [sLambda1.val, sLambda2.val]
         dho = [sdho1.val, sdho2.val]
         AR = [sAR1.val, sAR2.val]
-        ptoC = [sptc1.val, sptc2.val]
+        ptc = [sptc1.val, sptc2.val]
+        Po1 = float(Po1box.text)*10**5
+        To1 = float(To1box.text)
+        mdot = float(mdotbox.text)
+        Omega = float(Omegabox.text)*2*np.pi/60
+        W = float(Wbox.text)*10**6
+        t = float(tbox.text)/10**3
+        g = float(gbox.text)/10**3
+        Po1box.stop_typing()
+        To1box.stop_typing()
+        mdotbox.stop_typing()
+        Omegabox.stop_typing()
+        Wbox.stop_typing()
+        tbox.stop_typing()
+        gbox.stop_typing()
         #Recalculate turbine performance
-        new_turbine = turbine(Po1, To1, mdot, Omega, phi, psi, Lambda, AR, W, dho, n, t, g, ptoC, a1i)
+        new_turbine = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, a1i)
         #Get new profile data
         data = b2b_data(new_turbine)
         #Update plots
@@ -460,7 +494,9 @@ def b2b_variable(turbine_data):
                 te2[4*i+j].set_ydata(data[7].T[:, 4*i+j])
         #Update the efficiency and angle boxes
         eff.set_val('Efficiency: {}%'.format(np.round(100*new_turbine[0], 2)))
+        eff.stop_typing()
         angle_max.set_val('Maximum angle: {}º'.format(np.round(new_turbine[12][1], 2)))
+        angle_max.stop_typing()
         #Change the colour of the angle box if needed
         if new_turbine[12][0]:
             angle_max.color = 'r'
@@ -475,7 +511,7 @@ def b2b_variable(turbine_data):
         ax.set_xbound(np.amin(data[0])-scale*Cxst1, np.amax(data[0])+scale*Cxron)
         ax.set_ybound(np.amin(data[1])-scale*Cxmax, np.amax(data[1])+scale*Cxmax)
         fig.canvas.draw_idle()
-    #When any of the sliders are changed, update the graph
+    #When any of the sliders are changed, update the figure
     sphi1.on_changed(update)
     sphi2.on_changed(update)
     spsi1.on_changed(update)
@@ -488,12 +524,20 @@ def b2b_variable(turbine_data):
     sAR2.on_changed(update)
     sptc1.on_changed(update)
     sptc2.on_changed(update)
-    plt.axis('equal')
+    #When a new input is submitted to the text boxes, update the figure
+    Po1box.on_submit(update)
+    To1box.on_submit(update)
+    mdotbox.on_submit(update)
+    Omegabox.on_submit(update)
+    Wbox.on_submit(update)
+    tbox.on_submit(update)
+    gbox.on_submit(update)
     #Reset button to return sliders to initial values
     resetax = plt.axes([0.47, 0.05, 0.08, 0.04])
     reset_button = Button(resetax, 'Reset', color='1.0', hovercolor='0.5')
     def reset(event):
         """Reset the sliders"""
+        Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, a1i = turbine_data[11]
         sphi1.reset()
         sphi2.reset()
         spsi1.reset()
@@ -506,6 +550,13 @@ def b2b_variable(turbine_data):
         sAR2.reset()
         sptc1.reset()
         sptc2.reset()
+        Po1box.set_val(Po1/10**5)
+        To1box.set_val(To1)
+        mdotbox.set_val(mdot)
+        Omegabox.set_val(Omega*60/(2*np.pi))
+        Wbox.set_val(W/10**6)
+        tbox.set_val(t*10**3)
+        gbox.set_val(g*10**3)
     reset_button.on_clicked(reset)
     reset_button.on_clicked(update)
     #Button that sets the exit loading equal to inlet to create repeating stages
@@ -552,16 +603,18 @@ def annulus(turbine_data, close=True, scale=True):
     #Plot the results
     if close:
         plt.figure()
-        plt.plot(x, r_hub, 'black')
-        plt.plot(x, r_cas, 'black')
+        plt.plot(x, r_hub, label='Hub')
+        plt.plot(x, r_cas, label='Casing')
         plt.xlabel('Length along turbine (m)')
         plt.ylabel('Radius (m)')
+        plt.legend()
         plt.show()
     if scale:
         plt.figure()
-        plt.plot(x, r_hub, 'black', linewidth=0.5)
-        plt.plot(x, r_cas, 'black', linewidth=0.5)
+        plt.plot(x, r_hub, label='Hub', linewidth=0.5)
+        plt.plot(x, r_cas, label='Casing', linewidth=0.5)
         plt.xlabel('Length along turbine (m)')
         plt.ylabel('Radius (m)')
         plt.ylim(0, 1.1*np.amax(r_cas))
+        plt.legend()
         plt.show()

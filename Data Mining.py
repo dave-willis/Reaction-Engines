@@ -25,21 +25,21 @@ To3 = To1-del_ho/cp
 #psi = 0.8
 #Lambda = 0.5
 #AR = 1.5
-#ptoC = -1.0
+#ptc = -1.0
 #n = 20
 ##10 stages
 #phi = 0.3
 #psi = 0.8
 #Lambda = 0.5
 #AR = 1.0
-#ptoC = 1.056
+#ptc = 1.056
 #n = 10
 ##5 stages
 #phi = 0.4
 #psi = 1.1
 #Lambda = 0.5
 #AR = 1.0
-#ptoC = 1.0
+#ptc = 1.0
 #n = 5
 
 #10 stages
@@ -47,7 +47,7 @@ phi = [0.317, 0.335]
 psi = [1.065, 1.067]
 Lambda = [0.496, 0.527]
 AR = [1.0, 1.0]
-ptoC = [1.067, 1.058]
+ptc = [1.067, 1.058]
 n = 10
 dho = [1.002, 1.008]
 
@@ -55,7 +55,7 @@ calcs = ''
 plot = 'yes'
 save = ''
 start_time = time.time()
-result = turbine(Po1, To1, mdot, Omega, phi, psi, Lambda, AR, W, dho, n, t, g, ptoC)
+result = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc)
 print('Time:{} s'.format(time.time()-start_time))
 #print('Angles [a1,a2,b2,a3,b3]=', np.round(result[10],2))
 #print('Chords [Cxst,Cxro]=', np.round([[i[3],i[4]] for i in result[5]],6))
@@ -66,9 +66,9 @@ print('Volume = {} m^3'.format(result[3]))
 print('No. Blades = {}'.format(int(result[6])))
 print('')
 if plot == 'yes':
-#    b2b_variable(result)
+    b2b_variable(result)
 #    b2b_plot(result)
-    annulus(result)
+#    annulus(result)
 
 
 if calcs == 'brute force':
@@ -157,7 +157,7 @@ if calcs == 'brute force':
                         
     def turbine_calcs(var):
         To1, Po1, n, phi, psi, dho, AR, a1i = [i for i in var]
-        eff = turbine(Po1, To1, mdot, Omega, phi, psi, Lambda, AR, W*n/(n+1), dho, n, t, g, ptoC, a1i)[0]
+        eff = turbine(Po1, To1, mdot, Omega, phi, psi, Lambda, AR, W*n/(n+1), dho, n, t, g, ptc, a1i)[0]
         return [eff, n, phi, psi, Lambda, dho, AR, a1i]
     
     p = Pool(processes=cpu_count()-2)
@@ -189,33 +189,33 @@ if calcs == 'opt':
     psi0 = 1.1
     Lam0 = 0.5
     AR0 = 1.0
-    ptoC0 = 1.0
+    ptc0 = 1.0
     dho0 = 1.0
          
     phi_lim = (0.2, 1.0)
     psi_lim = (0.5, 2.5)
     Lam_lim = (0, 1)
     AR_lim = (1, 2)
-    ptoC_lim = (0.7, 1.3)
+    ptc_lim = (0.7, 1.3)
     dh_lim = (1, 5)
     
     def turbine_calcs(args):
         
-        ph1, ph2, ps1, ps2, L1, L2, AR1, AR2, ptoC1, ptoC2, dh1, dh2 = [i for i in args]
+        ph1, ph2, ps1, ps2, L1, L2, AR1, AR2, ptc1, ptc2, dh1, dh2 = [i for i in args]
         phi = [ph1, ph2]
         psi = [ps1, ps2]
         Lambda = [L1, L2]
         dho = [dh1, dh2]
         AR = [AR1, AR2]
-        ptoC = (ptoC1, ptoC2)
+        ptc = (ptc1, ptc2)
              
-        eff = turbine(Po1, To1, mdot, Omega, phi, psi, Lambda, AR, W, dho, n, t, g, ptoC)[0]
+        eff = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc)[0]
         
         return -eff
     
     def constraint_a2(args):
         
-        ph1, ph2, ps1, ps2, L1, L2, AR1, AR2, ptoC1, ptoC2, dh1, dh2 = [i for i in args]
+        ph1, ph2, ps1, ps2, L1, L2, AR1, AR2, ptc1, ptc2, dh1, dh2 = [i for i in args]
         
         phi = [ph1, ph2]
         psi = [ps1, ps2]
@@ -238,7 +238,7 @@ if calcs == 'opt':
 
     def constraint_b3(args):
         
-        ph1, ph2, ps1, ps2, L1, L2, AR1, AR2, ptoC1, ptoC2, dh1, dh2 = [i for i in args]
+        ph1, ph2, ps1, ps2, L1, L2, AR1, AR2, ptc1, ptc2, dh1, dh2 = [i for i in args]
         
         phi = [ph1, ph2]
         psi = [ps1, ps2]
@@ -259,8 +259,8 @@ if calcs == 'opt':
         
         return 73-b3_max    
         
-    x0 = [phi0, phi0, psi0, psi0, Lam0, Lam0, AR0, AR0, ptoC0, ptoC0, dho0, dho0]
-    bnds = (phi_lim, phi_lim, psi_lim, psi_lim, Lam_lim, Lam_lim, AR_lim, AR_lim, ptoC_lim, ptoC_lim, dh_lim, dh_lim)
+    x0 = [phi0, phi0, psi0, psi0, Lam0, Lam0, AR0, AR0, ptc0, ptc0, dho0, dho0]
+    bnds = (phi_lim, phi_lim, psi_lim, psi_lim, Lam_lim, Lam_lim, AR_lim, AR_lim, ptc_lim, ptc_lim, dh_lim, dh_lim)
     cons = cons = ({'type': 'ineq', 'fun': constraint_a2}, {'type': 'ineq', 'fun': constraint_b3})
     
     res = minimize(turbine_calcs, x0, method='SLSQP', bounds=bnds, constraints = cons)
@@ -269,20 +269,39 @@ if calcs == 'opt':
     psi = [res['x'][2], res['x'][3]]
     Lambda = [res['x'][4], res['x'][5]]
     AR = [res['x'][6], res['x'][7]]
-    ptoC = [res['x'][8], res['x'][9]]
+    ptc = [res['x'][8], res['x'][9]]
     dho = [res['x'][10], res['x'][11]]
+    turbine_data = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc)
     
-    print("Optimum efficiency =", -res['fun'])
-    print("phi =", np.round(phi, 4))
-    print("psi =", np.round(psi, 4))
-    print("Lambda =", np.round(Lambda, 4))
-    print("AR =", np.round(AR, 4))
-    print("ptc =", np.round(ptoC, 4))
-    print("dho =", np.round(dho, 4))
-    
-    result = turbine(Po1, To1, mdot, Omega, phi, psi, Lambda, AR, W, dho, n, t, g, ptoC)
+    print("Optimum efficiency = {}".format(-res['fun']))
+    print("phi = {}".format(np.round(phi, 4)))
+    print("psi = {}".format(np.round(psi, 4)))
+    print("Lambda = {}".format(np.round(Lambda, 4)))
+    print("AR = {}".format(np.round(AR, 4)))
+    print("ptc = {}".format(np.round(ptc, 4)))
+    print("dho = {}".format(np.round(dho, 4)))
+#    
+#    import csv
+#    design = ['Design {}'.format(n)]
+#    stages = ['Stages', n]
+#    radii = ['Radii', np.round([i[0] for i in turbine_data[5]],5)]
+#    stator_spans = ['Stator spans', np.round([i[1] for i in turbine_data[5]],5)]
+#    rotor_spans = ['Rotor spans', np.round([i[2] for i in turbine_data[5]],5)]
+#    stator_chords = ['Stator chords', np.round([i[3] for i in turbine_data[5]],5)]
+#    rotor_chords = ['Rotor chords', np.round([i[4] for i in turbine_data[5]],5)]
+#    
+#    with open('Design.csv', 'a') as csvFile:
+#        writer = csv.writer(csvFile)
+#        writer.writerow(design)
+#        writer.writerow(stages)
+#        writer.writerow(radii)
+#        writer.writerow(stator_spans)
+#        writer.writerow(rotor_spans)
+#        writer.writerow(stator_chords)
+#        writer.writerow(rotor_chords)
+#    csvFile.close()
 
     if plot == 'opt':
-        b2b_plot(result)
-        annulus(result)
+        b2b_plot(turbine_data)
+        annulus(turbine_data)
             
