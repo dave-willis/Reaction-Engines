@@ -1,6 +1,7 @@
 """
 Module contains functions to evaluate helium turbine performance.
-Helium gas properties set in turbine function
+Helium gas properties set in turbine function, would require new values of
+cp and gamma and a new viscosity law
 """
 #Import required modules
 import numpy as np
@@ -10,7 +11,7 @@ from scipy import interpolate as sciint
 ###MAIN TURBINE ROUTINE###
 ##########################
 
-def turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc=-1, a1i=0):
+def turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc=-1, a1i=0, gas_props=[5187, 1.6625]):
     """Return the turbine performance and sizing"""
 
     #If the inputs for phi, psi, Lambda, dho, AR, or ptc ints or floats, assume they're
@@ -74,12 +75,11 @@ def turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc=-1
         ang_1 = ang_check[3]
         if abs(ang_2) > 73 or abs(ang_3) > 73:
             angle_warning = [True, max(abs(ang_2), abs(ang_3))]
-        elif angle_warning[0] == False:
+        elif not angle_warning[0]:
             angle_warning = [False, max(abs(ang_2), abs(ang_3))]
     #Gas properties
-    cp = 5187
-    gamma = 1.6625
-    R = 2067
+    cp, gamma = gas_props
+    R = cp-cp/gamma
     gas_props = [cp, gamma, R]
     #Overall specific enthalpy drop
     del_ho = W/mdot
@@ -181,11 +181,11 @@ def stage(Po1, To1, del_ho, params, sizes, gas_props):
     To2 = To1 #No stagnation temperature drop over stator
     T2 = To2 - 0.5*(V2**2)/cp
     c2 = np.sqrt(gamma*R*T2)
-    mu2 = (3.674*10**(-7))*(T2**0.7)
+    mu2 = viscosity(T2)
     To3 = To2 - del_ho/cp #Stagnation temperature drop depending on stage work
     T3 = To3 - 0.5*(V3**2)/cp
     c3 = np.sqrt(gamma*R*T3)
-    mu3 = (3.674*10**(-7))*(T3**0.7)
+    mu3 = viscosity(T3)
     #Flow is incompressible however compressible relation requires no
     #knowledge of the density to find the static pressure
     P1 = Po1*(1+(gamma-1)*((V1/c1)**2)/2)**(-gamma/(gamma-1))
@@ -413,6 +413,14 @@ def TC(g, H, a1, a2, V2, T):
     entropy = m*(V2**2)*(1-np.tan(a1)*(np.sin(a2)**2)/np.tan(a2))/T
 
     return entropy, m
+
+def viscosity(T):
+    """Calculate viscosity of the gas"""
+
+    #Just helium for now
+    mu = (3.674*10**(-7))*(T**0.7)
+
+    return mu
 
 ########################
 ###GEOMETRY FUNCTIONS###

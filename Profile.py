@@ -358,7 +358,7 @@ def b2b_data(turbine_data):
         tecx2[4*i+3] = [j+x0ro for j in TEcx2]
         tecy2[4*i+3] = [j+Cxro*ptcro for j in TEcy2]
 
-    return scale*xp, scale*yp, scale*xs, scale*ys, scale*tecx, scale*tecy, scale*tecx2, scale*tecy2, scale
+    return scale*xp, scale*yp, scale*xs, scale*ys, scale*tecx, scale*tecy, scale*tecx2, scale*tecy2, scale, max_stages
 
 def b2b_plot(turbine_data):
     """Plot blade-to-blade profiles for the whole turbine"""
@@ -379,11 +379,15 @@ def b2b_plot(turbine_data):
 def b2b_variable(start=[145*10**5, 950, 16, 710.21, 17*10**6, 0.0003, 0.0003, 0.35, 1.1, 0.5, 1, 1, 10, 1, 0]):
     """Plot blade-to-blade profiles with variable loadings"""
 
+    #Set the global variables
+    global new_turbine, Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc
     #Run the parameters through the turbine function for initial setup
     Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, a1i = start
-    turbine_data = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, a1i)
+    new_turbine = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, a1i)
+    #Save the start for resetting
+    original_turbine = new_turbine
     #Extract new parameters
-    Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, a1i = turbine_data[11]
+    Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, a1i = new_turbine[11]
     phi01 = phi[0]
     phi02 = phi[-1]
     psi01 = psi[0]
@@ -397,11 +401,12 @@ def b2b_variable(start=[145*10**5, 950, 16, 710.21, 17*10**6, 0.0003, 0.0003, 0.
     ptc01 = ptc[0]
     ptc02 = ptc[-1]
     #Use function to get data for b2b plot
-    data = b2b_data(turbine_data)
+    data = b2b_data(new_turbine)
     scale = data[8]
-    Cxst1 = turbine_data[5][0][3]
-    Cxron = turbine_data[5][-1][4]
-    Cxmax = np.amax([i[3] for i in turbine_data[5]])
+    max_stages = data[9]
+    Cxst1 = new_turbine[5][0][3]
+    Cxron = new_turbine[5][-1][4]
+    Cxmax = np.amax([i[3] for i in new_turbine[5]])
     #Initialise plots
     fig, ax = plt.subplots()
     plt.subplots_adjust(bottom=0.25)
@@ -442,10 +447,10 @@ def b2b_variable(start=[145*10**5, 950, 16, 710.21, 17*10**6, 0.0003, 0.0003, 0.
     sptc2 = Slider(axptc2, '$p/C_2$', 0.5, 1.5, valinit=ptc02)
     #Text box showing turbine efficiency
     effax = plt.axes([0.85, 0.9, 0.087, 0.04])
-    eff = TextBox(effax, '', 'Efficiency: {}%'.format(np.round(100*turbine_data[0], 2)), color='1.0')
+    eff = TextBox(effax, '', 'Efficiency: {}%'.format(np.round(100*new_turbine[0], 2)), color='1.0')
     #Text box showing maximum angle
     angle_maxax = plt.axes([0.72, 0.9, 0.11, 0.04])
-    angle_max = TextBox(angle_maxax, '', 'Maximum angle: {}º'.format(np.round(turbine_data[12][1], 2)), color='g', hovercolor='g')
+    angle_max = TextBox(angle_maxax, '', 'Maximum angle: {}º'.format(np.round(new_turbine[12][1], 2)), color='g', hovercolor='g')
     #Text boxes that allow for other inputs to be changed
     Po1ax = plt.axes([0.1, 0.9, 0.03, 0.04])
     To1ax = plt.axes([0.18, 0.9, 0.03, 0.04])
@@ -466,35 +471,14 @@ def b2b_variable(start=[145*10**5, 950, 16, 710.21, 17*10**6, 0.0003, 0.0003, 0.
     #Update the figure and text when the sliders are changed
     def update(val):
         """Update the plots"""
-        #Update the inputs with the slider and textbox values
-        phi = [sphi1.val, sphi2.val]
-        psi = [spsi1.val, spsi2.val]
-        Lambda = [sLambda1.val, sLambda2.val]
-        dho = [sdho1.val, sdho2.val]
-        AR = [sAR1.val, sAR2.val]
-        ptc = [sptc1.val, sptc2.val]
-        Po1 = float(Po1box.text)*10**5
-        To1 = float(To1box.text)
-        mdot = float(mdotbox.text)
-        Omega = float(Omegabox.text)*2*np.pi/60
-        W = float(Wbox.text)*10**6
-        t = float(tbox.text)/10**3
-        g = float(gbox.text)/10**3
-        n = int(float(nbox.text))
-        Po1box.stop_typing()
-        To1box.stop_typing()
-        mdotbox.stop_typing()
-        Omegabox.stop_typing()
-        Wbox.stop_typing()
-        tbox.stop_typing()
-        gbox.stop_typing()
-        nbox.stop_typing()
+        #Declare the turbine data to be global
+        global new_turbine, Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc
         #Recalculate turbine performance
-        new_turbine = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, a1i)
+        new_turbine = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc)
         #Get new profile data
         data = b2b_data(new_turbine)
         #Update plots
-        for i in range(n):
+        for i in range(max_stages):
             for j in range(4):
                 pres[4*i+j].set_xdata(data[0].T[:, 4*i+j])
                 pres[4*i+j].set_ydata(data[1].T[:, 4*i+j])
@@ -520,37 +504,68 @@ def b2b_variable(start=[145*10**5, 950, 16, 710.21, 17*10**6, 0.0003, 0.0003, 0.
         Cxst1 = new_turbine[5][0][3]
         Cxron = new_turbine[5][-1][4]
         Cxmax = np.amax([i[3] for i in new_turbine[5]])
+        plt.axis('equal')
         ax.set_xbound(np.amin(data[0][:4*n])-scale*Cxst1, np.amax(data[0][:4*n])+scale*Cxron)
         ax.set_ybound(np.amin(data[1][:4*n])-scale*Cxmax, np.amax(data[1][:4*n])+scale*Cxmax)
         fig.canvas.draw_idle()
     #When any of the sliders are changed, update the figure
-    sphi1.on_changed(update)
-    sphi2.on_changed(update)
-    spsi1.on_changed(update)
-    spsi2.on_changed(update)
-    sLambda1.on_changed(update)
-    sLambda2.on_changed(update)
-    sdho1.on_changed(update)
-    sdho2.on_changed(update)
-    sAR1.on_changed(update)
-    sAR2.on_changed(update)
-    sptc1.on_changed(update)
-    sptc2.on_changed(update)
+    def slider_update(val):
+        """Update parameters from sliders"""
+        global Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc
+        phi = [sphi1.val, sphi2.val]
+        psi = [spsi1.val, spsi2.val]
+        Lambda = [sLambda1.val, sLambda2.val]
+        dho = [sdho1.val, sdho2.val]
+        AR = [sAR1.val, sAR2.val]
+        ptc = [sptc1.val, sptc2.val]
+        update(val)
+    sphi1.on_changed(slider_update)
+    sphi2.on_changed(slider_update)
+    spsi1.on_changed(slider_update)
+    spsi2.on_changed(slider_update)
+    sLambda1.on_changed(slider_update)
+    sLambda2.on_changed(slider_update)
+    sdho1.on_changed(slider_update)
+    sdho2.on_changed(slider_update)
+    sAR1.on_changed(slider_update)
+    sAR2.on_changed(slider_update)
+    sptc1.on_changed(slider_update)
+    sptc2.on_changed(slider_update)
     #When a new input is submitted to the text boxes, update the figure
-    Po1box.on_submit(update)
-    To1box.on_submit(update)
-    mdotbox.on_submit(update)
-    Omegabox.on_submit(update)
-    Wbox.on_submit(update)
-    tbox.on_submit(update)
-    gbox.on_submit(update)
-    nbox.on_submit(update)
+    def text_update(val):
+        """Update the parameters from the text boxes"""
+        global Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc
+        Po1 = float(Po1box.text)*10**5
+        To1 = float(To1box.text)
+        mdot = float(mdotbox.text)
+        Omega = float(Omegabox.text)*2*np.pi/60
+        W = float(Wbox.text)*10**6
+        t = float(tbox.text)/10**3
+        g = float(gbox.text)/10**3
+        n = int(float(nbox.text))
+        Po1box.stop_typing()
+        To1box.stop_typing()
+        mdotbox.stop_typing()
+        Omegabox.stop_typing()
+        Wbox.stop_typing()
+        tbox.stop_typing()
+        gbox.stop_typing()
+        nbox.stop_typing()
+        update(val)
+    Po1box.on_submit(text_update)
+    To1box.on_submit(text_update)
+    mdotbox.on_submit(text_update)
+    Omegabox.on_submit(text_update)
+    Wbox.on_submit(text_update)
+    tbox.on_submit(text_update)
+    gbox.on_submit(text_update)
+    nbox.on_submit(text_update)
     #Reset button to return sliders to initial values
-    resetax = plt.axes([0.47, 0.05, 0.08, 0.04])
+    resetax = plt.axes([0.47, 0.01, 0.08, 0.04])
     reset_button = Button(resetax, 'Reset', color='1.0', hovercolor='0.5')
     def reset(event):
         """Reset the sliders"""
-        Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, a1i = turbine_data[11]
+        Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, a1i = original_turbine[11]
         sphi1.reset()
         sphi2.reset()
         spsi1.reset()
@@ -574,7 +589,7 @@ def b2b_variable(start=[145*10**5, 950, 16, 710.21, 17*10**6, 0.0003, 0.0003, 0.
     reset_button.on_clicked(reset)
     reset_button.on_clicked(update)
     #Button that sets the exit loading equal to inlet to create repeating stages
-    repeatingax = plt.axes([0.47, 0.1, 0.08, 0.04])
+    repeatingax = plt.axes([0.47, 0.14, 0.08, 0.04])
     repeating_button = Button(repeatingax, 'Repeating', color='1.0', hovercolor='0.5')
     def repeat(event):
         """Set output loading to input"""
@@ -586,9 +601,17 @@ def b2b_variable(start=[145*10**5, 950, 16, 710.21, 17*10**6, 0.0003, 0.0003, 0.
         sptc2.set_val(sptc1.val)
     repeating_button.on_clicked(repeat)
     repeating_button.on_clicked(update)
+    #Button to plot the annulus of the turbine
+    annulusax = plt.axes([0.47, 0.075, 0.08, 0.04])
+    annulus_button = Button(annulusax, 'Annulus', color='1.0', hovercolor='0.5')
+    def annulus_plot(event):
+        """Plot the output when clicked"""
+        annulus(new_turbine)
+    annulus_button.on_clicked(annulus_plot)
     #These create dummy variables to ensure buttons can be referenced outside of function
     repeatingax._button = repeating_button
     resetax._button = reset_button
+    annulusax._button = annulus_button
 
 def annulus(turbine_data):
     """Plot annulus size through the turbine, return the plotting points"""
@@ -621,11 +644,17 @@ def annulus(turbine_data):
         if n > 1 and i == 0:
             l += Cxst*1.25+Cxro*1.5
         #Add an extra length for the final stage
-        elif i == n-1:
+        elif n > 1 and i == n-1:
             l += Cxst*1.5+Cxro*1.25
             x.append(l)
             r_hub.append((r_hub[i]-r_hub[i-1])/(x[i]-x[i-1])*(x[i+1]-x[i])+r_hub[i])
             r_cas.append((r_cas[i]-r_cas[i-1])/(x[i]-x[i-1])*(x[i+1]-x[i])+r_cas[i])
+        #If 1 stage then cut off the end
+        elif n == 1:
+            l += Cxst*1.25+Cxro*1.25
+            x.append(l)
+            r_hub.append(r_hub[i])
+            r_cas.append(r_cas[i])
         else:
             l += Cxst*1.5+Cxro*1.5
     #Plot blades
@@ -669,7 +698,8 @@ def annulus(turbine_data):
     reset_button = Button(resetax, 'Reset', color='1.0', hovercolor='0.5')
     def zoom(val):
         """Zoom in on annulus"""
-        ax.axis('auto')
+        ax.set_ybound(0.95*np.amin(r_hub), 1.05*np.amax(r_cas))
+        ax.set_xbound(-0.05*x[-1], 1.05*x[-1])
     def reset(val):
         """Reset view"""
         ax.axis('equal')

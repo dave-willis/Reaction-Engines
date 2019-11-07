@@ -14,4 +14,3 @@ a1 = len(np.arange(0, 20, 2))
 num = AR*phi**2*psi**2*dho*a1*n
 
 print(num)
-

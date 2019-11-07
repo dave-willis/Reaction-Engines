@@ -48,7 +48,7 @@ psi = [1.065, 1.067]
 Lambda = [0.496, 0.527]
 AR = [1.0, 1.0]
 ptc = [1.067, 1.058]
-n = 5
+n = 10
 dho = [1.002, 1.008]
 
 calcs = ''
@@ -56,7 +56,7 @@ plot = 'yes'
 save = ''
 start_time = time.time()
 result = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc)
-print('Time:{} s'.format(time.time()-start_time))
+print('Time: {} s'.format(time.time()-start_time))
 #print('Angles [a1,a2,b2,a3,b3]=', np.round(result[10],2))
 #print('Chords [Cxst,Cxro]=', np.round([[i[3],i[4]] for i in result[5]],6))
 print('Work = {} W'.format(result[1]))
@@ -66,9 +66,9 @@ print('Volume = {} m^3'.format(result[3]))
 print('No. Blades = {}'.format(int(result[6])))
 print('')
 if plot == 'yes':
-#    b2b_variable(result[11])
+    b2b_variable(result[11])
 #    b2b_plot(result)
-    annulus(result)
+#    annulus(result)
 
 
 if calcs == 'brute force':
