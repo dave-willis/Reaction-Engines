@@ -64,6 +64,7 @@ print('Efficiency = {}'.format(result[0]))
 print('Mass = {} kg'.format(result[2]))
 print('Volume = {} m^3'.format(result[3]))
 print('No. Blades = {}'.format(int(result[6])))
+print('Axial force on rotor = {} N'.format(result[13]))
 print('')
 if plot == 'yes':
     b2b_variable(result[11])
@@ -175,13 +176,7 @@ if calcs == 'brute force':
     
 if calcs == 'opt':
     
-    Po1 = 145*10**5
-    To1 = 950
-    W = 17*10**6
-    mdot = 16
-    Omega = 6782*2*np.pi/60
-    t = 0.0003
-    g = 0.0003
+    start = time.time()
     
     phi0 = 0.35
     psi0 = 1.1
@@ -271,6 +266,7 @@ if calcs == 'opt':
     dho = [res['x'][10], res['x'][11]]
     turbine_data = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc)
     
+    print("Optimizer time: {}".format(time.time()-start))
     print("Optimum efficiency = {}".format(-res['fun']))
     print("phi = {}".format(np.round(phi, 4)))
     print("psi = {}".format(np.round(psi, 4)))

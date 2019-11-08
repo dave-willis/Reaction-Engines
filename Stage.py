@@ -96,6 +96,7 @@ def turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc=-1
     dims = [] #Array containing turbine radius, stator span and stator chord
     angle = [] #Stage angles
     n_blades = 0 #Total blades in the turbine
+    Fx = 0 #Axial force on rotor
     #Increment through every stage
     i = 0
     while i < n:
@@ -130,6 +131,7 @@ def turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc=-1
         work += stage_calc[5]
         r = stage_calc[7][2]
         n_blades += stage_calc[11]
+        Fx += stage_calc[12]
         H_st = stage_calc[7][3]
         H_ro = stage_calc[7][4]
         Cx_st = stage_calc[7][5]
@@ -142,7 +144,7 @@ def turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc=-1
     #Find the efficiency using the overall loss
     eff = del_ho/(del_ho+To1*loss)
     #More outputs can be added for whatever is needed
-    return eff, work*mdot, mass, volume, length, dims, n_blades, loss_comp, Poi, Toi, angle, inits, angle_warning
+    return eff, work*mdot, mass, volume, length, dims, n_blades, loss_comp, Poi, Toi, angle, inits, angle_warning, Fx
 
 ###################
 ###STAGE ROUTINE###
@@ -164,9 +166,6 @@ def stage(Po1, To1, del_ho, params, sizes, gas_props):
     t, g, r = sizes
     #Initial guess for the stage work output accounting for tip leakage
     work = del_ho#*0.95
-    #Iterate until the stage produces the requird work
-#    while work/del_ho < 0.999 or work/del_ho > 1.001:
-#        psi = psi*del_ho/work
     #Calculate angles
     a1, a2, b2, a3, b3 = find_angs(phi, psi, Lambda, a1)
     #Create array of angles needed in the loss function
@@ -259,8 +258,10 @@ def stage(Po1, To1, del_ho, params, sizes, gas_props):
     mass = m_vessel_st+m_vessel_ro+m_drum+m_blade
     #Total number of blades in the stage
     n_blades = blade_mass(r, ptc_st, H_st, Cx_st)[1]+blade_mass(r, ptc_ro, H_ro, Cx_ro)[1]
+    #Axial force on rotor
+    Fx = blade_force(P2, P3, r, H2, H3)
 
-    return To3, Po3, eff, mass, volume, work, length, dimensions, loss, loss_array, a3, n_blades
+    return To3, Po3, eff, mass, volume, work, length, dimensions, loss, loss_array, a3, n_blades, Fx
 
 ######################
 ###VORTEX FUNCTIONS###
@@ -486,9 +487,9 @@ def p_w(Cx, a1, a2, ptoC):
 
     return w, ptc
 
-####################
-###MASS FUNCTIONS###
-####################
+##############################
+###MASS AND FORCE FUNCTIONS###
+##############################
 
 def vessel_mass(Pin, r, l):
     """Return the pressure vessel mass required using Tresca"""
@@ -524,6 +525,14 @@ def blade_mass(rm, ptc, H, Cx):
     m = rho_m*H*Cx*t_av*n
 
     return m, n
+
+def blade_force(P1, P2, r, H1, H2):
+    """Return the axial force on the blade row"""
+    
+    #SFME with constant axial velocity: just pressure difference 
+    Fx = 2*np.pi*r*(H1*P1-H2*P2)
+    
+    return Fx
 
 ######################
 ###SPLINE FUNCTION###

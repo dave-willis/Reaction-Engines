@@ -292,7 +292,7 @@ def b2b_data(turbine_data):
     #Initialise values
     l = 0
     #Array size set by the maximum number of stages
-    max_stages = 50
+    max_stages = 30
     xp = np.zeros([4*max_stages, points])
     yp = np.zeros([4*max_stages, points])
     xs = np.zeros([4*max_stages, points])
@@ -409,6 +409,7 @@ def b2b_variable(start=[145*10**5, 950, 16, 710.21, 17*10**6, 0.0003, 0.0003, 0.
     Cxmax = np.amax([i[3] for i in new_turbine[5]])
     #Initialise plots
     fig, ax = plt.subplots()
+    plt.subplots_adjust(left=0.06, right=0.86, top=0.85, bottom=0.2)
     plt.subplots_adjust(bottom=0.25)
     pres = plt.plot(data[0].T, data[1].T, 'black', lw=2)
     suc = plt.plot(data[2].T, data[3].T, 'black', lw=2)
@@ -420,18 +421,18 @@ def b2b_variable(start=[145*10**5, 950, 16, 710.21, 17*10**6, 0.0003, 0.0003, 0.
     plt.xlabel('Distance along turbine (mm)')
     plt.ylabel('Tangential distance (mm)')
     #Create axes for position of sliders [left, bottom, width, height]
-    axphi1 = plt.axes([0.12, 0.16, 0.3, 0.02])
-    axphi2 = plt.axes([0.6, 0.16, 0.3, 0.02])
-    axpsi1 = plt.axes([0.12, 0.13, 0.3, 0.02])
-    axpsi2 = plt.axes([0.6, 0.13, 0.3, 0.02])
-    axLambda1 = plt.axes([0.12, 0.1, 0.3, 0.02])
-    axLambda2 = plt.axes([0.6, 0.1, 0.3, 0.02])
-    axdho1 = plt.axes([0.12, 0.07, 0.3, 0.02])
-    axdho2 = plt.axes([0.6, 0.07, 0.3, 0.02])
-    axAR1 = plt.axes([0.12, 0.04, 0.3, 0.02])
-    axAR2 = plt.axes([0.6, 0.04, 0.3, 0.02])
-    axptc1 = plt.axes([0.12, 0.01, 0.3, 0.02])
-    axptc2 = plt.axes([0.6, 0.01, 0.3, 0.02])
+    axphi1 = plt.axes([0.06, 0.16, 0.32, 0.02])
+    axphi2 = plt.axes([0.54, 0.16, 0.32, 0.02])
+    axpsi1 = plt.axes([0.06, 0.13, 0.32, 0.02])
+    axpsi2 = plt.axes([0.54, 0.13, 0.32, 0.02])
+    axLambda1 = plt.axes([0.06, 0.1, 0.32, 0.02])
+    axLambda2 = plt.axes([0.54, 0.1, 0.32, 0.02])
+    axdho1 = plt.axes([0.06, 0.07, 0.32, 0.02])
+    axdho2 = plt.axes([0.54, 0.07, 0.32, 0.02])
+    axAR1 = plt.axes([0.06, 0.04, 0.32, 0.02])
+    axAR2 = plt.axes([0.54, 0.04, 0.32, 0.02])
+    axptc1 = plt.axes([0.06, 0.01, 0.32, 0.02])
+    axptc2 = plt.axes([0.54, 0.01, 0.32, 0.02])
     #Create sliders for each variable
     sphi1 = Slider(axphi1, '$\phi_1$', 0.1, 1.0, valinit=phi01)
     sphi2 = Slider(axphi2, '$\phi_2$', 0.1, 1.0, valinit=phi02)
@@ -443,31 +444,40 @@ def b2b_variable(start=[145*10**5, 950, 16, 710.21, 17*10**6, 0.0003, 0.0003, 0.
     sdho2 = Slider(axdho2, '$\Delta h_{02}$', 1, 3, valinit=dho02)
     sAR1 = Slider(axAR1, '$AR_1$', 0.9, 2.0, valinit=AR01)
     sAR2 = Slider(axAR2, '$AR_2$', 0.9, 2.0, valinit=AR02)
-    sptc1 = Slider(axptc1, '$p/C_1$', 0.5, 1.5, valinit=ptc01)
-    sptc2 = Slider(axptc2, '$p/C_2$', 0.5, 1.5, valinit=ptc02)
+    sptc1 = Slider(axptc1, '$p/C_{x1}$', 0.5, 1.5, valinit=ptc01)
+    sptc2 = Slider(axptc2, '$p/C_{x2}$', 0.5, 1.5, valinit=ptc02)
     #Text box showing turbine efficiency
-    effax = plt.axes([0.85, 0.9, 0.087, 0.04])
+    effax = plt.axes([0.885, 0.65, 0.087, 0.04])
     eff = TextBox(effax, '', 'Efficiency: {}%'.format(np.round(100*new_turbine[0], 2)), color='1.0')
+    #Text box showing mass
+    massax = plt.axes([0.885, 0.55, 0.087, 0.04])
+    mass = TextBox(massax, '', 'Mass: {} kg'.format(np.round(new_turbine[2], 2)), color='1.0')
+    #Text box showing total blades
+    nbax = plt.axes([0.885, 0.45, 0.087, 0.04])
+    nb = TextBox(nbax, '', 'No. Blades: {}'.format(int(new_turbine[6])), color='1.0')
+    #Text box showing axial rotor force
+    fxax = plt.axes([0.885, 0.35, 0.087, 0.04])
+    fx = TextBox(fxax, '', 'Rotor F$_x$: {} kN'.format(np.round(0.001*new_turbine[13], 2)), color='1.0')
     #Text box showing maximum angle
-    angle_maxax = plt.axes([0.72, 0.9, 0.11, 0.04])
+    angle_maxax = plt.axes([0.8735, 0.75, 0.11, 0.04])
     angle_max = TextBox(angle_maxax, '', 'Maximum angle: {}º'.format(np.round(new_turbine[12][1], 2)), color='g', hovercolor='g')
     #Text boxes that allow for other inputs to be changed
-    Po1ax = plt.axes([0.1, 0.9, 0.03, 0.04])
-    To1ax = plt.axes([0.18, 0.9, 0.03, 0.04])
-    mdotax = plt.axes([0.26, 0.9, 0.03, 0.04])
-    Omegaax = plt.axes([0.34, 0.9, 0.035, 0.04])
-    Wax = plt.axes([0.42, 0.9, 0.03, 0.04])
-    tax = plt.axes([0.5, 0.9, 0.03, 0.04])
-    gax = plt.axes([0.58, 0.9, 0.03, 0.04])
-    nax = plt.axes([0.66, 0.9, 0.03, 0.04])
-    Po1box = TextBox(Po1ax, '$P_{01}$ (bar) ', '{}'.format(Po1/10**5), color='1.0')
-    To1box = TextBox(To1ax, '$T_{01}$ (K) ', '{}'.format(To1), color='1.0')
-    mdotbox = TextBox(mdotax, '$\dot{m}$ (kg/s) ', '{}'.format(mdot), color='1.0')
-    Omegabox = TextBox(Omegaax, '$\Omega$ (rpm) ', '{}'.format(np.round(Omega*60/(2*np.pi), 0)), color='1.0')
-    Wbox = TextBox(Wax, '$\dot{W}$ (MW) ', '{}'.format(W/10**6), color='1.0')
-    tbox = TextBox(tax, '$t_{TE}$ (mm) ', '{}'.format(t*10**3), color='1.0')
-    gbox = TextBox(gax, '$g$ (mm) ', '{}'.format(g*10**3), color='1.0')
-    nbox = TextBox(nax, '$n_{stages}$ ', '{}'.format(n), color='1.0')
+    Po1ax = plt.axes([0.17, 0.9, 0.03, 0.04])
+    To1ax = plt.axes([0.25, 0.9, 0.03, 0.04])
+    mdotax = plt.axes([0.33, 0.9, 0.03, 0.04])
+    Omegaax = plt.axes([0.41, 0.9, 0.035, 0.04])
+    Wax = plt.axes([0.49, 0.9, 0.03, 0.04])
+    tax = plt.axes([0.57, 0.9, 0.03, 0.04])
+    gax = plt.axes([0.65, 0.9, 0.03, 0.04])
+    nax = plt.axes([0.73, 0.9, 0.03, 0.04])
+    Po1box = TextBox(Po1ax, '$P_{01}$ (bar) ', '{}'.format(Po1/10**5), color='1.0', label_pad=0.15)
+    To1box = TextBox(To1ax, '$T_{01}$ (K) ', '{}'.format(To1), color='1.0', label_pad=0.15)
+    mdotbox = TextBox(mdotax, '$\dot{m}$ (kg/s) ', '{}'.format(mdot), color='1.0', label_pad=0.15)
+    Omegabox = TextBox(Omegaax, '$\Omega$ (rpm) ', '{}'.format(np.round(Omega*60/(2*np.pi), 0)), color='1.0', label_pad=0.15)
+    Wbox = TextBox(Wax, '$\dot{W}$ (MW) ', '{}'.format(W/10**6), color='1.0', label_pad=0.15)
+    tbox = TextBox(tax, '$t_{TE}$ (mm) ', '{}'.format(t*10**3), color='1.0', label_pad=0.15)
+    gbox = TextBox(gax, '$g$ (mm) ', '{}'.format(g*10**3), color='1.0', label_pad=0.15)
+    nbox = TextBox(nax, '$n_{stages}$ ', '{}'.format(n), color='1.0', label_pad=0.15)
     #Update the figure and text when the sliders are changed
     def update(val):
         """Update the plots"""
@@ -493,6 +503,12 @@ def b2b_variable(start=[145*10**5, 950, 16, 710.21, 17*10**6, 0.0003, 0.0003, 0.
         eff.stop_typing()
         angle_max.set_val('Maximum angle: {}º'.format(np.round(new_turbine[12][1], 2)))
         angle_max.stop_typing()
+        fx.set_val('Rotor F$_x$: {} kN'.format(np.round(0.001*new_turbine[13], 2)))
+        fx.stop_typing()
+        mass.set_val('Mass: {} kg'.format(np.round(new_turbine[2], 2)))
+        mass.stop_typing()
+        nb.set_val('No. Blades: {}'.format(int(new_turbine[6])))
+        nb.stop_typing()
         #Change the colour of the angle box if needed
         if new_turbine[12][0]:
             angle_max.color = 'r'
@@ -504,10 +520,8 @@ def b2b_variable(start=[145*10**5, 950, 16, 710.21, 17*10**6, 0.0003, 0.0003, 0.
         Cxst1 = new_turbine[5][0][3]
         Cxron = new_turbine[5][-1][4]
         Cxmax = np.amax([i[3] for i in new_turbine[5]])
-        plt.axis('equal')
         ax.set_xbound(np.amin(data[0][:4*n])-scale*Cxst1, np.amax(data[0][:4*n])+scale*Cxron)
         ax.set_ybound(np.amin(data[1][:4*n])-scale*Cxmax, np.amax(data[1][:4*n])+scale*Cxmax)
-        fig.canvas.draw_idle()
     #When any of the sliders are changed, update the figure
     def slider_update(val):
         """Update parameters from sliders"""
@@ -561,7 +575,7 @@ def b2b_variable(start=[145*10**5, 950, 16, 710.21, 17*10**6, 0.0003, 0.0003, 0.
     gbox.on_submit(text_update)
     nbox.on_submit(text_update)
     #Reset button to return sliders to initial values
-    resetax = plt.axes([0.47, 0.01, 0.08, 0.04])
+    resetax = plt.axes([0.42, 0.01, 0.08, 0.04])
     reset_button = Button(resetax, 'Reset', color='1.0', hovercolor='0.5')
     def reset(event):
         """Reset the sliders"""
@@ -589,7 +603,7 @@ def b2b_variable(start=[145*10**5, 950, 16, 710.21, 17*10**6, 0.0003, 0.0003, 0.
     reset_button.on_clicked(reset)
     reset_button.on_clicked(update)
     #Button that sets the exit loading equal to inlet to create repeating stages
-    repeatingax = plt.axes([0.47, 0.14, 0.08, 0.04])
+    repeatingax = plt.axes([0.42, 0.14, 0.08, 0.04])
     repeating_button = Button(repeatingax, 'Repeating', color='1.0', hovercolor='0.5')
     def repeat(event):
         """Set output loading to input"""
@@ -602,7 +616,7 @@ def b2b_variable(start=[145*10**5, 950, 16, 710.21, 17*10**6, 0.0003, 0.0003, 0.
     repeating_button.on_clicked(repeat)
     repeating_button.on_clicked(update)
     #Button to plot the annulus of the turbine
-    annulusax = plt.axes([0.47, 0.075, 0.08, 0.04])
+    annulusax = plt.axes([0.42, 0.075, 0.08, 0.04])
     annulus_button = Button(annulusax, 'Annulus', color='1.0', hovercolor='0.5')
     def annulus_plot(event):
         """Plot the output when clicked"""
@@ -675,14 +689,14 @@ def annulus(turbine_data):
         x3 = x[i]+1.25*Cxst+0.25*Cxro
         x4 = x[i]+1.25*Cxst+1.25*Cxro
         #Plot lines for the blades
-        plt.plot([x1, x1], [y1_hub, y1_cas], 'grey', lw=0.5)
-        plt.plot([x2, x2], [y2_hub, y2_cas], 'grey', lw=0.5)
-        plt.plot([x1, x2], [y1_hub, y2_cas], 'grey', lw=0.5)
-        plt.plot([x1, x2], [y1_cas, y2_hub], 'grey', lw=0.5)
-        plt.plot([x3, x3], [y3_hub, y3_cas], 'grey', lw=0.5)
-        plt.plot([x4, x4], [y4_hub, y4_cas], 'grey', lw=0.5)
-        plt.plot([x3, x4], [y3_hub, y4_cas], 'grey', lw=0.5)
-        plt.plot([x3, x4], [y3_cas, y4_hub], 'grey', lw=0.5)
+        plt.plot([x1, x1], [y1_hub, y1_cas], color='0.5', lw=0.5)
+        plt.plot([x2, x2], [y2_hub, y2_cas], color='0.5', lw=0.5)
+        plt.plot([x1, x2], [y1_hub, y2_cas], color='0.5', lw=0.5)
+        plt.plot([x1, x2], [y1_cas, y2_hub], color='0.5', lw=0.5)
+        plt.plot([x3, x3], [y3_hub, y3_cas], color='0.2', lw=0.5)
+        plt.plot([x4, x4], [y4_hub, y4_cas], color='0.2', lw=0.5)
+        plt.plot([x3, x4], [y3_hub, y4_cas], color='0.2', lw=0.5)
+        plt.plot([x3, x4], [y3_cas, y4_hub], color='0.2', lw=0.5)
     #Plot the results
     plt.plot(x, r_hub, label='Hub', linewidth=0.5)
     plt.plot(x, r_cas, label='Casing', linewidth=0.5)
