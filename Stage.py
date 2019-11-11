@@ -6,12 +6,13 @@ cp and gamma and a new viscosity law
 #Import required modules
 import numpy as np
 from scipy import interpolate as sciint
+from scipy.optimize import minimize
 
 ##########################
 ###MAIN TURBINE ROUTINE###
 ##########################
 
-def turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc=-1, a1i=0, gas_props=[5187, 1.6625]):
+def turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc=-1, ain=0, gas_props=[5187, 1.6625]):
     """Return the turbine performance and sizing"""
 
     #If the inputs for phi, psi, Lambda, dho, AR, or ptc ints or floats, assume they're
@@ -41,15 +42,16 @@ def turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc=-1
         AR = AR[:n]
     if len(ptc) > n:
         ptc = ptc[:n]
-    #Store the inputs for later use
-    inits = [Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, a1i]
     #If all loadings are constant treat as repeating stages
     rep = False
     if all(i == phi[0] for i in phi) and all(i == psi[0] for i in psi) and all(i == Lambda[0] for i in Lambda):
         find_angs = repeating
         rep = True
+        ain = np.degrees(find_angs(phi[0], psi[0], Lambda[0], ain)[0])
     else:
         find_angs = angles
+    #Store the inputs for later use
+    inits = [Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, ain]
     #Create splines of the stage loadings if n>1
     if n > 1:
         phi = spline(n, phi)
@@ -73,7 +75,7 @@ def turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc=-1
         ang_2 = np.degrees(ang_check[1])
         ang_3 = np.degrees(ang_check[4])
         ang_1 = ang_check[3]
-        if abs(ang_2) > 73 or abs(ang_3) > 73:
+        if np.round(abs(ang_2),2) > 73.0 or np.round(abs(ang_3),2) > 73.0:
             angle_warning = [True, max(abs(ang_2), abs(ang_3))]
         elif not angle_warning[0]:
             angle_warning = [False, max(abs(ang_2), abs(ang_3))]
@@ -86,7 +88,7 @@ def turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc=-1
     #Initialise quantities
     Poi = Po1
     Toi = To1
-    a1i = np.radians(a1i)
+    a1i = np.radians(ain)
     loss = 0
     loss_comp = [0, 0, 0, 0, 0] #Entropy rise from profile, TE, EW, secondary flow and tip
     length = 0
@@ -345,7 +347,7 @@ def losses(angs, vels, states, dimensions):
     secondary_ro = secondary(b2, b3, Cx_ro, H_ro, W3, T3)
     secondary_loss = secondary_st+secondary_ro
     #Add up entropy rises for the stator and rotor and find the overall loss
-    loss_st = profile_st+TE_st+EW_st+secondary_st+TC_st
+    loss_st = profile_st+TE_st+EW_st+secondary_st+1.0*TC_st
     loss_ro = profile_ro+TE_ro+EW_ro+secondary_ro+TC_ro
     loss = loss_st+loss_ro
     loss_comp = [profile_loss, TE_loss, EW_loss, secondary_loss, TC_loss] #Array of loss components
@@ -528,15 +530,15 @@ def blade_mass(rm, ptc, H, Cx):
 
 def blade_force(P1, P2, r, H1, H2):
     """Return the axial force on the blade row"""
-    
-    #SFME with constant axial velocity: just pressure difference 
+
+    #SFME with constant axial velocity: just pressure difference
     Fx = 2*np.pi*r*(H1*P1-H2*P2)
-    
+
     return Fx
 
-######################
+#####################
 ###SPLINE FUNCTION###
-######################
+#####################
 
 def spline(n, y):
     """Return spline of loadings using specified control points"""
@@ -555,3 +557,102 @@ def spline(n, y):
     ynew = sciint.splev(xnew, tck)
 
     return ynew
+
+#######################
+###OPTIMISE FUNCTION###
+#######################
+
+def optimise(start_turbine):
+    """Find an optimum design point from a given start"""
+
+    #Extract starting inputs
+    Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, ain = start_turbine[11]
+    #Define starting points
+    phi0 = phi[0]
+    psi0 = psi[0]
+    Lam0 = Lambda[0]
+    AR0 = AR[0]
+    dho0 = dho[0]
+    phi1 = phi[-1]
+    psi1 = psi[-1]
+    Lam1 = Lambda[-1]
+    AR1 = AR[-1]
+    dho1 = dho[-1]
+    #Define limits
+    phi_lim = (0.2, 1.0)
+    psi_lim = (0.5, 2.5)
+    Lam_lim = (0, 1)
+    AR_lim = (1, 2)
+    dh_lim = (1, 5)
+
+    def turbine_calcs(args):
+        """Takes a list of arguments and feeds them to the turbine function"""
+        #Extract arguments
+        ph1, ph2, ps1, ps2, L1, L2, AR1, AR2, dh1, dh2 = [i for i in args]
+        #Form them into lists
+        phi = [ph1, ph2]
+        psi = [ps1, ps2]
+        Lambda = [L1, L2]
+        dho = [dh1, dh2]
+        AR = [AR1, AR2]
+        #Pass them to the turbine to find efficiency
+        eff = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, ain)[0]
+        #Return the negative of efficiency to allow for minimising
+        return -eff
+
+    def constraint_a2(args):
+        """Constraint on a2"""
+        #Extract and form lists
+        ph1, ph2, ps1, ps2, L1, L2, AR1, AR2, dh1, dh2 = [i for i in args]
+        phi = [ph1, ph2]
+        psi = [ps1, ps2]
+        Lambda = [L1, L2]
+        #Spline over n
+        phi = spline(n, phi)
+        psi = spline(n, psi)
+        Lambda = spline(n, Lambda)
+        #Calculate angles
+        a2_max = 0
+        a1 = ain
+        for i in range(len(phi)):
+            ang_check = angles(phi[i], psi[i], Lambda[i], a1)
+            a2 = np.degrees(ang_check[1])
+            a1 = ang_check[3]
+            if abs(a2) > a2_max:
+                a2_max = abs(a2)
+        #Return a value that should be greater than zero
+        return 73-a2_max
+
+    def constraint_b3(args):
+        """Constraint on b2"""
+        #Extract and form lists
+        ph1, ph2, ps1, ps2, L1, L2, AR1, AR2, dh1, dh2 = [i for i in args]
+        phi = [ph1, ph2]
+        psi = [ps1, ps2]
+        Lambda = [L1, L2]
+        #Spline over n
+        phi = spline(n, phi)
+        psi = spline(n, psi)
+        Lambda = spline(n, Lambda)
+        #Calculate angles
+        b3_max = 0
+        a1 = ain
+        for i in range(len(phi)):
+            ang_check = angles(phi[i], psi[i], Lambda[i], a1)
+            b3 = np.degrees(ang_check[4])
+            a1 = ang_check[3]
+            if  abs(b3) > b3_max:
+                b3_max = abs(b3)
+        #Return a value that should be greater than zero
+        return 73-b3_max
+    #Form the starting point list
+    x0 = [phi0, phi1, psi0, psi1, Lam0, Lam1, AR0, AR1, dho0, dho1]
+    #Form the tuple of bounds
+    bnds = (phi_lim, phi_lim, psi_lim, psi_lim, Lam_lim, Lam_lim, AR_lim, AR_lim, dh_lim, dh_lim)
+    #Form the tuple of constraints
+    cons = cons = ({'type': 'ineq', 'fun': constraint_a2}, {'type': 'ineq', 'fun': constraint_b3})
+    #Find the minimum
+    res = minimize(turbine_calcs, x0, method='SLSQP', bounds=bnds, constraints=cons)
+    #Extract the optimal variable and return them
+    phi1, phi2, psi1, psi2, Lam1, Lam2, AR1, AR2, dho1, dho2 = res['x']
+    return [phi1, phi2], [psi1, psi2], [Lam1, Lam2], [AR1, AR2], [dho1, dho2]

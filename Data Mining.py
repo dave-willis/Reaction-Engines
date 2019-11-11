@@ -1,6 +1,6 @@
 """Calculations for evaluating turbine performance"""
 
-from Stage import turbine, angles, spline
+from Stage import turbine, angles, spline, optimise
 from Profile import b2b_plot, annulus, b2b_variable
 import numpy as np
 import time
@@ -14,8 +14,8 @@ To1 = 950
 W = 17*10**6
 mdot = 16
 Omega = 6782*2*np.pi/60
-t = 0.0003
-g = 0.0003
+t = 0.00015
+g = 0.00015
 
 cp = 5187
 del_ho = W/mdot
@@ -51,19 +51,28 @@ ptc_lim = (0.7, 1.3)
 dh_lim = (1, 5)
 
 #10 stages
-phi = [0.317, 0.335]
-psi = [1.065, 1.067]
-Lambda = [0.496, 0.527]
+phi = [0.281, 0.307]
+psi = [0.833, 0.892]
+Lambda = [0.5, 0.5]
 AR = [1.0, 1.0]
-ptc = [1.067, 1.058]
+ptc = [1.1, 1.1]
 n = 10
-dho = [1.002, 1.008]
+ain = 0
+dho = [1.0, 1.1]
 
-calcs = 'optall'
-plot = ''
+#phi = [0.35, 0.35]
+#psi = [1,1, 1.1]
+#Lambda = [0.5, 0.5]
+#AR = [1.0, 1.0]
+#ptc = [1.3, 1.3]
+#n = 10
+#dho = [1.0, 1.0]
+
+calcs = ''
+plot = 'yes'
 save = ''
 start_time = time.time()
-result = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc)
+result = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, ain)
 print('Time: {} s'.format(time.time()-start_time))
 #print('Angles [a1,a2,b2,a3,b3]=', np.round(result[10],2))
 #print('Chords [Cxst,Cxro]=', np.round([[i[3],i[4]] for i in result[5]],6))
@@ -73,46 +82,16 @@ print('Mass = {} kg'.format(result[2]))
 print('Volume = {} m^3'.format(result[3]))
 print('No. Blades = {}'.format(int(result[6])))
 print('Axial force on rotor = {} N'.format(result[13]))
+print(result[12])
 print('')
 if plot == 'yes':
-    b2b_variable(result[11])
+    b2b_variable(result)
 #    b2b_plot(result)
 #    annulus(result)
 
 
 if calcs == 'brute force':
     start_time = time.time()
-    
-#    #Create arrays of all the loading combinations 
-#    phi_set = np.arange(0.25, 0.75, 0.2)
-#    psi_set = np.arange(0.75, 1.75, 0.2)
-#    Lambda = [0.5, 0.5, 0.5]
-#    dh_set = np.arange(1, 2, 0.25)
-#    
-#    phis = np.zeros([len(phi_set)**3,3])
-#    psis = np.zeros([len(psi_set)**3,3])
-#    dhs = np.zeros([len(dh_set)**3-len(dh_set)+1,3])
-#    
-#    n_phi = 0
-#    for i in phi_set:
-#        for j in phi_set:
-#            for k in phi_set:
-#                phis[n_phi] = [i, j, k]
-#                n_phi += 1
-#    n_psi = 0
-#    for i in psi_set:
-#        for j in psi_set:
-#            for k in psi_set:
-#                psis[n_psi] = [i, j, k]
-#                n_psi += 1
-#    n_dh = 1
-#    dhs[0] = [1, 1, 1]
-#    for i in dh_set:
-#        for j in dh_set:
-#            for k in dh_set:
-#                if i != j or i != k or j != k:
-#                    dhs[n_dh] = [i, j, k]
-#                    n_dh += 1
                     
     #Create arrays of all the loading combinations 
     phi_set = np.arange(0.3, 0.9, 0.1)
@@ -164,13 +143,13 @@ if calcs == 'brute force':
                         for a1i in np.arange(0, 20, 2):
                             variables.append([To1, Po1, n, phi, psi, dho, AR, a1i])
                         
-    def turbine_calcs(var):
+    def turb_calcs(var):
         To1, Po1, n, phi, psi, dho, AR, a1i = [i for i in var]
         eff = turbine(Po1, To1, mdot, Omega, phi, psi, Lambda, AR, W*n/(n+1), dho, n, t, g, ptc, a1i)[0]
         return [eff, n, phi, psi, Lambda, dho, AR, a1i]
     
     p = Pool(processes=cpu_count()-2)
-    results = p.map(turbine_calcs, variables)
+    results = p.map(turb_calcs, variables)
     p.close()
     p.join()
     
@@ -186,95 +165,23 @@ if calcs == 'opt1':
     
     start = time.time()
     
-    phi0 = 0.35
-    psi0 = 1.1
-    Lam0 = 0.5
-    AR0 = 1.0
-    ptc0 = 1.0
-    dho0 = 1.0
-    
-    def turbine_calcs(args):
-    
-        ph1, ph2, ps1, ps2, L1, L2, AR1, AR2, ptc1, ptc2, dh1, dh2 = [i for i in args]
-        phi = [ph1, ph2]
-        psi = [ps1, ps2]
-        Lambda = [L1, L2]
-        dho = [dh1, dh2]
-        AR = [AR1, AR2]
-        ptc = (ptc1, ptc2)
-             
-        eff = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc)[0]
-        
-        return -eff
-    
-    def constraint_a2(args):
-    
-        ph1, ph2, ps1, ps2, L1, L2, AR1, AR2, ptc1, ptc2, dh1, dh2 = [i for i in args]
-        
-        phi = [ph1, ph2]
-        psi = [ps1, ps2]
-        Lambda = [L1, L2]
-        
-        phi = spline(n, phi)
-        psi = spline(n, psi)
-        Lambda = spline(n, Lambda)
-        
-        a2_max = 0
-        a1 = 0
-        for i in range(len(phi)):
-            ang_check = angles(phi[i], psi[i], Lambda[i], a1)
-            a2 = np.degrees(ang_check[1])
-            a1 = ang_check[3] 
-            if abs(a2) > a2_max:
-                a2_max = abs(a2)
-        
-        return 73-a2_max
-
-    def constraint_b3(args):
-        
-        ph1, ph2, ps1, ps2, L1, L2, AR1, AR2, ptc1, ptc2, dh1, dh2 = [i for i in args]
-        
-        phi = [ph1, ph2]
-        psi = [ps1, ps2]
-        Lambda = [L1, L2]
-        
-        phi = spline(n, phi)
-        psi = spline(n, psi)
-        Lambda = spline(n, Lambda)
-        
-        b3_max = 0
-        a1 = 0
-        for i in range(len(phi)):
-            ang_check = angles(phi[i], psi[i], Lambda[i], a1)
-            b3 = np.degrees(ang_check[4])
-            a1 = ang_check[3] 
-            if  abs(b3) > b3_max:
-                b3_max = abs(b3)
-        
-        return 73-b3_max
-        
-    x0 = [phi0, phi0, psi0, psi0, Lam0, Lam0, AR0, AR0, ptc0, ptc0, dho0, dho0]
-    bnds = (phi_lim, phi_lim, psi_lim, psi_lim, Lam_lim, Lam_lim, AR_lim, AR_lim, ptc_lim, ptc_lim, dh_lim, dh_lim)
-    cons = cons = ({'type': 'ineq', 'fun': constraint_a2}, {'type': 'ineq', 'fun': constraint_b3})
-    
-    res = minimize(turbine_calcs, x0, method='SLSQP', bounds=bnds, constraints=cons)
-    
-    phi = [res['x'][0], res['x'][1]]
-    psi = [res['x'][2], res['x'][3]]
-    Lambda = [res['x'][4], res['x'][5]]
-    AR = [res['x'][6], res['x'][7]]
-    ptc = [res['x'][8], res['x'][9]]
-    dho = [res['x'][10], res['x'][11]]
-    turbine_data = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc)
+    phi, psi, Lambda, AR, dho = optimise(result)
     
     print("Optimizer time: {}".format(time.time()-start))
-    print("Optimum efficiency = {}".format(-res['fun']))
+    
+    turbine_data = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, ain)
+    
+    print("Optimum efficiency = {}".format(turbine_data[0]))
     print("phi = {}".format(np.round(phi, 4)))
     print("psi = {}".format(np.round(psi, 4)))
     print("Lambda = {}".format(np.round(Lambda, 4)))
     print("AR = {}".format(np.round(AR, 4)))
-    print("ptc = {}".format(np.round(ptc, 4)))
     print("dho = {}".format(np.round(dho, 4)))
+    print("ain = {}".format(np.round(turbine_data[11][14], 4)))
+    print("Max angle = {}".format(np.round(turbine_data[12][1], 4)))
+    print('Mass = {} kg'.format(result[2]))
+    print('No. Blades = {}'.format(int(result[6])))
+    print('Axial force on rotor = {} N'.format(result[13]))
 
     if plot == 'opt':
         b2b_plot(turbine_data)
@@ -353,7 +260,7 @@ if calcs == 'optall':
         dho = [dh1, dh2]
         AR = [AR1, AR2]
              
-        eff = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc)[0]
+        eff = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, ain)[0]
         
         return -eff
     
@@ -370,7 +277,7 @@ if calcs == 'optall':
         Lambda = spline(n, Lambda)
         
         a2_max = 0
-        a1 = 0
+        a1 = ain
         for i in range(len(phi)):
             ang_check = angles(phi[i], psi[i], Lambda[i], a1)
             a2 = np.degrees(ang_check[1])
@@ -393,7 +300,7 @@ if calcs == 'optall':
         Lambda = spline(n, Lambda)
         
         b3_max = 0
-        a1 = 0
+        a1 = ain
         for i in range(len(phi)):
             ang_check = angles(phi[i], psi[i], Lambda[i], a1)
             b3 = np.degrees(ang_check[4])
@@ -419,12 +326,9 @@ if calcs == 'optall':
     p = Pool(processes=cpu_count())
     try:
         results = p.map_async(optimize, variables).get(9999999)
-        results.wait()
     except KeyboardInterrupt:
-        # **** THIS PART NEVER EXECUTES. ****
         p.terminate()
-        print("You cancelled the program!")
-        sys.exit(1)
+        sys.exit('KeyboardInterrupt')
     p.close()
     p.join()
     
@@ -435,5 +339,18 @@ if calcs == 'optall':
     print('Turbine calculations done in', hours, 'h', minutes, 'm', seconds, 's')
     
     results.sort(key=lambda x: -x['fun'])
-
+    
+    for i in results[-9:]:
+        print('Efficiency = {}'.format(np.round(-i['fun'], 4)))
+        print('phi = {}'.format(np.round([i['x'][0], i['x'][1]],3)))
+        print('psi = {}'.format(np.round([i['x'][2], i['x'][3]],3)))
+        print('Lambda = {}'.format(np.round([i['x'][4], i['x'][5]],3)))
+        print('AR = {}'.format(np.round([i['x'][6], i['x'][7]],3)))
+        print('dho = {}'.format(np.round([i['x'][8], i['x'][9]],3)))
+        print('')
+        
+#if calcs == 'sensitivity':
+#    
+#    base_eff = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, ain)
+    
     
