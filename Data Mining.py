@@ -1,7 +1,7 @@
 """Calculations for evaluating turbine performance"""
 
 from Stage import turbine, angles, spline, optimise
-from Profile import b2b_plot, annulus, b2b_variable
+from Profile import b2b_variable, b2b_plot, annulus
 import numpy as np
 import time
 from multiprocessing import cpu_count
@@ -14,54 +14,31 @@ To1 = 950
 W = 17*10**6
 mdot = 16
 Omega = 6782*2*np.pi/60
-t = 0.00015
-g = 0.00015
+t = 0.0003
+g = 0.0003
 
 cp = 5187
 del_ho = W/mdot
 To3 = To1-del_ho/cp
 
-##20 stages
-#phi = 0.3
-#psi = 0.8
-#Lambda = 0.5
-#AR = 1.5
-#ptc = -1.0
-#n = 20
-##10 stages
-#phi = 0.3
-#psi = 0.8
-#Lambda = 0.5
-#AR = 1.0
-#ptc = 1.056
-#n = 10
-##5 stages
-#phi = 0.4
-#psi = 1.1
-#Lambda = 0.5
-#AR = 1.0
-#ptc = 1.0
-#n = 5
-
 phi_lim = (0.2, 1.0)
 psi_lim = (0.5, 2.5)
 Lam_lim = (0, 1)
 AR_lim = (1, 2)
-ptc_lim = (0.7, 1.3)
+ptc_lim = (0.7, 1.5)
 dh_lim = (1, 5)
 
-#10 stages
-phi = [0.281, 0.307]
-psi = [0.833, 0.892]
-Lambda = [0.5, 0.5]
-AR = [1.0, 1.0]
+phi = [0.272, 0.293]
+psi = [0.778, 0.901]
+Lambda = [0.496, 0.507]
+AR = [0.643, 0.796]
 ptc = [1.1, 1.1]
 n = 10
 ain = 0
-dho = [1.0, 1.1]
+dho = [1.0, 1.106]
 
 #phi = [0.35, 0.35]
-#psi = [1,1, 1.1]
+#psi = [1.1, 1.1]
 #Lambda = [0.5, 0.5]
 #AR = [1.0, 1.0]
 #ptc = [1.3, 1.3]
@@ -69,26 +46,25 @@ dho = [1.0, 1.1]
 #dho = [1.0, 1.0]
 
 calcs = ''
-plot = 'yes'
+plot = ''
 save = ''
 start_time = time.time()
 result = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, ain)
 print('Time: {} s'.format(time.time()-start_time))
 #print('Angles [a1,a2,b2,a3,b3]=', np.round(result[10],2))
-#print('Chords [Cxst,Cxro]=', np.round([[i[3],i[4]] for i in result[5]],6))
+print('Chords [Cxst,Cxro]=', np.round([[i[3],i[4]] for i in result[5]],6))
 print('Work = {} W'.format(result[1]))
 print('Efficiency = {}'.format(result[0]))
 print('Mass = {} kg'.format(result[2]))
 print('Volume = {} m^3'.format(result[3]))
 print('No. Blades = {}'.format(int(result[6])))
 print('Axial force on rotor = {} N'.format(result[13]))
+print('Average Re = {}'.format(result[14]))
 print(result[12])
 print('')
 if plot == 'yes':
     b2b_variable(result)
 #    b2b_plot(result)
-#    annulus(result)
-
 
 if calcs == 'brute force':
     start_time = time.time()
@@ -179,10 +155,11 @@ if calcs == 'opt1':
     print("dho = {}".format(np.round(dho, 4)))
     print("ain = {}".format(np.round(turbine_data[11][14], 4)))
     print("Max angle = {}".format(np.round(turbine_data[12][1], 4)))
-    print('Mass = {} kg'.format(result[2]))
-    print('No. Blades = {}'.format(int(result[6])))
-    print('Axial force on rotor = {} N'.format(result[13]))
-
+    print('Mass = {} kg'.format(turbine_data[2]))
+    print('No. Blades = {}'.format(int(turbine_data[6])))
+    print('Axial force on rotor = {} N'.format(turbine_data[13]))
+    print('Average Re = {}'.format(turbine_data[14]))
+    
     if plot == 'opt':
         b2b_plot(turbine_data)
         annulus(turbine_data)
@@ -349,8 +326,59 @@ if calcs == 'optall':
         print('dho = {}'.format(np.round([i['x'][8], i['x'][9]],3)))
         print('')
         
-#if calcs == 'sensitivity':
-#    
-#    base_eff = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, ain)
+if calcs == 'sensitivity':
     
-    
+    result = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, ain)
+    base_eff = result[0]
+
+    Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, ain = result[11]
+
+    for ph in np.arange(0.9*phi[0], 1.1*phi[0], 0.01*phi[0]):
+        phi_0 = [ph, phi[-1]]
+        new_eff = turbine(Po1, To1, mdot, Omega, W, t, g, phi_0, psi, Lambda, AR, dho, n, ptc, ain)[0]
+        if abs(base_eff-new_eff)/base_eff > 0.001:
+            print('phi 0:', ph, new_eff)
+        phi_0 = [phi[0], ph]
+        new_eff = turbine(Po1, To1, mdot, Omega, W, t, g, phi_0, psi, Lambda, AR, dho, n, ptc, ain)[0]
+        if abs(base_eff-new_eff)/base_eff > 0.001:
+            print('phi 1:', ph, new_eff)
+
+    for ps in np.arange(0.9*psi[0], 1.1*psi[0], 0.01*psi[0]):
+        psi_0 = [ps, psi[-1]]
+        new_eff = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi_0, Lambda, AR, dho, n, ptc, ain)[0]
+        if abs(base_eff-new_eff)/base_eff > 0.001:
+            print('psi 0:', ps, new_eff)
+        psi_0 = [psi[0], ps]
+        new_eff = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi_0, Lambda, AR, dho, n, ptc, ain)[0]
+        if abs(base_eff-new_eff)/base_eff > 0.001:
+            print('psi 1:', ps, new_eff)
+
+    for la in np.arange(0.9*Lambda[0], 1.1*Lambda[0], 0.01*Lambda[0]):
+        Lambda_0 = [la, Lambda[-1]]
+        new_eff = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda_0, AR, dho, n, ptc, ain)[0]
+        if abs(base_eff-new_eff)/base_eff > 0.001:
+            print('Lambda 0:', la, new_eff)
+        phi_0 = [Lambda[0], la]
+        new_eff = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda_0, AR, dho, n, ptc, ain)[0]
+        if abs(base_eff-new_eff)/base_eff > 0.001:
+            print('Lambda 1:', la, new_eff)
+
+    for dh in np.arange(0.9*dho[0], 1.1*dho[0], 0.01*dho[0]):
+        dho_0 = [dh, dho[-1]]
+        new_eff = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho_0, n, ptc, ain)[0]
+        if abs(base_eff-new_eff)/base_eff > 0.001:
+            print('dho 0:', dh, new_eff)
+        dho_0 = [dho[0], dh]
+        new_eff = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho_0, n, ptc, ain)[0]
+        if abs(base_eff-new_eff)/base_eff > 0.001:
+            print('dho 1:', dh, new_eff)
+
+    for ar in np.arange(0.9*AR[0], 1.1*AR[0], 0.01*AR[0]):
+        ar_0 = [ar, AR[-1]]
+        new_eff = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, ar_0, dho, n, ptc, ain)[0]
+        if abs(base_eff-new_eff)/base_eff > 0.001:
+            print('AR 0:', ar, new_eff)
+        ar_0 = [AR[0], ar]
+        new_eff = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, ar_0, dho, n, ptc, ain)[0]
+        if abs(base_eff-new_eff)/base_eff > 0.001:
+            print('AR 1:', ar, new_eff)

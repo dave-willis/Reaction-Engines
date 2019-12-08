@@ -7,6 +7,7 @@ cp and gamma and a new viscosity law
 import numpy as np
 from scipy import interpolate as sciint
 from scipy.optimize import minimize
+import csv
 
 ##########################
 ###MAIN TURBINE ROUTINE###
@@ -14,7 +15,6 @@ from scipy.optimize import minimize
 
 def turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc=-1, ain=0, gas_props=[5187, 1.6625]):
     """Return the turbine performance and sizing"""
-
     #If the inputs for phi, psi, Lambda, dho, AR, or ptc ints or floats, assume they're
     #constant through the turbine
     if isinstance(phi, (float, int)):
@@ -99,6 +99,26 @@ def turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc=-1
     angle = [] #Stage angles
     n_blades = 0 #Total blades in the turbine
     Fx = 0 #Axial force on rotor
+    Re = 0 #Average Reynolds number
+    #Load the grid of normalised suction surface lengths and create the interpolation function
+    xin = []
+    xout = []
+    sslen = []
+    with open("ss_grid.csv") as csvfile:
+        reader = csv.reader(csvfile, quoting=csv.QUOTE_NONNUMERIC) # change contents to floats
+        line = 0
+        for row in reader: # each row is a list
+            if line == 0:
+                xout = row[1:]
+                line += 1
+            else:
+                xin.append(row[0])
+                sslen.append(row[1:])
+                line += 1
+    xout = np.asarray(xout)
+    xin = np.asarray(xin)
+    sslen = np.asarray(sslen)
+    ss_length = sciint.RectBivariateSpline(xin, xout, sslen, kx=1, ky=1)
     #Increment through every stage
     i = 0
     while i < n:
@@ -106,8 +126,8 @@ def turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc=-1
         r = np.sqrt(dho[i]/(psi[i]*Omega**2))
         U = r*Omega
         Vx = U*phi[i] #Axial velocity fixed by turbine parameters
-        #Create size array
-        sizes = [t, g, r]
+        #Create size array, including the function for ss length
+        sizes = [t, g, r, ss_length]
         #Create array of parameters needed for the stage
         params = [mdot, U, Vx, psi[i], phi[i], Lambda[i], a1i, AR[i], ptc[i], rep]
         #Update the input conditions for the next stage
@@ -141,12 +161,13 @@ def turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc=-1
         ptc_st = stage_calc[7][9]
         ptc_ro = stage_calc[7][10]
         dims.append([r, H_st, H_ro, Cx_st, Cx_ro, ptc_st, ptc_ro])
+        Re += (stage_calc[13][0]+stage_calc[13][1])/(2*n)
         #Move to the next stage
         i += 1
     #Find the efficiency using the overall loss
     eff = del_ho/(del_ho+To1*loss)
     #More outputs can be added for whatever is needed
-    return eff, work*mdot, mass, volume, length, dims, n_blades, loss_comp, Poi, Toi, angle, inits, angle_warning, Fx
+    return eff, work*mdot, mass, volume, length, dims, n_blades, loss_comp, Poi, Toi, angle, inits, angle_warning, Fx, Re
 
 ###################
 ###STAGE ROUTINE###
@@ -165,7 +186,7 @@ def stage(Po1, To1, del_ho, params, sizes, gas_props):
     else:
         find_angs = angles
     #Major sizes
-    t, g, r = sizes
+    t, g, r, ss = sizes
     #Initial guess for the stage work output accounting for tip leakage
     work = del_ho#*0.95
     #Calculate angles
@@ -228,8 +249,12 @@ def stage(Po1, To1, del_ho, params, sizes, gas_props):
         w_ro = p_w(Cx_ro, b2, b3, ptc)[0]
         #Create array for the loss function
         dimensions = [t, g, r, H_st, H_ro, Cx_st, Cx_ro, w_st, w_ro]
+        #Calculate the Reynolds numbers
+        ss_st = Cx_st*ss(np.degrees(a1), np.degrees(a2))[0][0]
+        ss_ro = Cx_ro*ss(np.degrees(b2), np.degrees(b3))[0][0]
+        Res = [rho2*V2*ss_st/mu2, rho3*W3*ss_ro/mu3]
         #Find the losses across the stator and rotor
-        loss_calc = losses(angs, vels, states, dimensions)
+        loss_calc = losses(angs, vels, states, dimensions, Res)
         loss_st = loss_calc[1] #Stator entropy rise
         loss_ro = loss_calc[2] #Rotor entropy rise
         #Use entropy rise to find stagnation pressure loss coefficients
@@ -263,7 +288,7 @@ def stage(Po1, To1, del_ho, params, sizes, gas_props):
     #Axial force on rotor
     Fx = blade_force(P2, P3, r, H2, H3)
 
-    return To3, Po3, eff, mass, volume, work, length, dimensions, loss, loss_array, a3, n_blades, Fx
+    return To3, Po3, eff, mass, volume, work, length, dimensions, loss, loss_array, a3, n_blades, Fx, Res
 
 ######################
 ###VORTEX FUNCTIONS###
@@ -304,7 +329,7 @@ def Y_po(po1, Y, V, c, gamma):
 
     return po2
 
-def losses(angs, vels, states, dimensions):
+def losses(angs, vels, states, dimensions, Res):
     """Return the entropy rises for given inputs in Stage"""
 
     #Create values from input arrays
@@ -312,6 +337,7 @@ def losses(angs, vels, states, dimensions):
     V1, V2, W2, W3 = vels
     T1, T2, T3, rho1, rho2, rho3, mu2, mu3, mdot = states
     t, g, r, H_st, H_ro, Cx_st, Cx_ro, w_st, w_ro = dimensions
+    Re_st, Re_ro = Res
     #Calculate tip clearance effect first so that mass flow can be
     #accounted for in profile and trailing edge loss
     TC_calcs_st = TC(g, H_st, a1, a2, V2, T2)
@@ -322,9 +348,6 @@ def losses(angs, vels, states, dimensions):
     m_ro = TC_calcs_ro[1]
     TC_loss = TC_st+TC_ro #Overall tip leakage entropy rise
     m_ls = [m_st, m_ro] #Leakage mass flow fraction for use in analysis
-    #Reynolds numbers calculated using exit conditions
-    Re_st = (rho2)*(V2)*Cx_st/mu2/4
-    Re_ro = (rho3)*(W3)*Cx_ro/mu3/4
     #Profile loss calculations
     profile_calcs_st = profile(Re_st, a1, a2, V2, T2)
     profile_calcs_ro = profile(Re_ro, b2, b3, W3, T3)
@@ -532,13 +555,13 @@ def blade_force(P1, P2, r, H1, H2):
     """Return the axial force on the blade row"""
 
     #SFME with constant axial velocity: just pressure difference
-    Fx = 2*np.pi*r*(H1*P1-H2*P2)
+    Fx = 2*np.pi*r*(H2*P2-H1*P1+(H2-H1)*(P1+P2)/2)
 
     return Fx
 
-#####################
-###SPLINE FUNCTION###
-#####################
+#############################
+###INTERPOLATION FUNCTIONs###
+#############################
 
 def spline(n, y):
     """Return spline of loadings using specified control points"""
@@ -579,10 +602,10 @@ def optimise(start_turbine):
     AR1 = AR[-1]
     dho1 = dho[-1]
     #Define limits
-    phi_lim = (0.2, 1.0)
+    phi_lim = (0.1, 1.0)
     psi_lim = (0.5, 2.5)
     Lam_lim = (0, 1)
-    AR_lim = (1, 2)
+    AR_lim = (0, 2)
     dh_lim = (1, 5)
 
     def turbine_calcs(args):

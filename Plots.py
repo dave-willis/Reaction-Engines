@@ -1,0 +1,242 @@
+"""Calculations for evaluating turbine performance"""
+
+from Stage import turbine, optimise
+import matplotlib.pyplot as plt
+import numpy as np
+import time
+
+Po1 = 145*10**5
+To1 = 950
+W = 17*10**6
+mdot = 16
+Omega = 6782*2*np.pi/60
+t = 0.0003
+g = 0.0003
+
+
+phi_lim = (0.2, 1.0)
+psi_lim = (0.5, 2.5)
+Lam_lim = (0, 1)
+AR_lim = (1, 2)
+ptc_lim = (0.7, 1.3)
+dh_lim = (1, 5)
+
+phi = [0.281, 0.307]
+psi = [0.833, 0.892]
+Lambda = [0.5, 0.5]
+AR = [1.0, 1.0]
+ptc = [1.1, 1.1]
+n = 10
+ain = 0
+dho = [1.0, 1.1]
+
+#phi = [0.272, 0.293]
+#psi = [0.778, 0.901]
+#Lambda = [0.496, 0.507]
+#AR = [0.643, 0.796]
+#ptc = [1.1, 1.1]
+#n = 10
+#ain = 0
+#dho = [1.0, 1.106]
+
+plot = 'opt'
+save = ''
+start_time = time.time()
+result = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, ain)
+print('Time: {} s'.format(time.time()-start_time))
+print('Work = {} W'.format(result[1]))
+print('Efficiency = {}'.format(result[0]))
+print('Mass = {} kg'.format(result[2]))
+print('Volume = {} m^3'.format(result[3]))
+print('No. Blades = {}'.format(int(result[6])))
+print('Axial force on rotor = {} N'.format(result[13]))
+print('Average Re = {}'.format(result[14]))
+
+loss_norm = (To1-W/mdot/5187)*mdot/W
+
+if plot == 'opt':
+    
+    Fx = []
+    Re = []
+    n_blades = []
+    phi1 = []
+    psi1 = []
+    lam1 = []
+    ar1 = []
+    dh1 = []
+    phi2 = []
+    psi2 = []
+    lam2 = []
+    ar2 = []
+    phim = []
+    psim = []
+    lamm = []
+    arm = []
+    eff = []
+    
+    for n in range(5,26):
+        
+        result = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, ain)
+        
+        ph, ps, Lam, ar, dh = optimise(result)
+        
+        turbine_data = turbine(Po1, To1, mdot, Omega, W, t, g, ph, ps, Lam, ar, dh, n, ptc, ain)
+        n_blades.append(turbine_data[6])
+        Re.append(turbine_data[14]/1000000)
+        Fx.append(turbine_data[13])
+        phim.append((ph[0]+ph[-1])/2)
+        psim.append((ps[0]+ps[-1])/2)
+        lamm.append((Lam[0]+Lam[-1])/2)
+        arm.append((ar[0]+ar[-1])/2)
+        phi1.append(ph[0])
+        psi1.append(ps[0])
+        lam1.append(Lam[0])
+        ar1.append(ar[0])
+        dh1.append(dh[-1]/dh[0])
+        phi2.append(ph[-1])
+        psi2.append(ps[-1])
+        lam2.append(Lam[-1])
+        ar2.append(ar[-1])
+        eff.append(turbine_data[0])
+        
+    
+    plt.figure()
+    plt.plot(range(5,26), Fx, 'x')
+    plt.xlabel('Number of stages')
+    plt.ylabel('Axial force (N)')
+    plt.xticks(range(5,26,5))
+    plt.figure()
+    plt.plot(range(5,26), Re, 'x')
+    plt.ylabel('Average $Re$ $(\\times 10^6)$')
+    plt.xlabel('Number of stages')
+    plt.xticks(range(5,26,5))
+    plt.figure()
+    plt.plot(range(5,26), n_blades, 'x')
+    plt.ylabel('Number of blades')
+    plt.xlabel('Number of stages')
+    plt.xticks(range(5,26,5))
+    plt.figure()
+    plt.plot(range(5,26), phim, label='$\\phi$', linewidth = 2)
+    plt.plot(range(5,26), psim, label='$\\psi$', linewidth = 2)
+    plt.plot(range(5,26), lamm, label='$\\Lambda$', linewidth = 2)
+    plt.plot(range(5,26), arm, label='AR', linewidth = 2)
+#    plt.plot(range(5,26), dh1, color='gray', label='$\\frac{\\Delta h_0,2}{\\Delta h_0,1}$', linewidth = 2)
+    plt.plot(range(5,26), eff, label='$\\eta$', linewidth = 2)
+    plt.ylabel('Optimal parameter value')
+    plt.xlabel('Number of stages')
+    plt.xticks(range(5,26,5))
+    plt.legend(bbox_to_anchor=(1.0,0.5), loc="center left")
+    plt.figure()
+    plt.plot(range(5,26), phi1, color='blue', label='$\\phi_1$')
+    plt.plot(range(5,26), phi2, color='blue', linestyle='--', label='$\\phi_2$')
+    plt.plot(range(5,26), psi1, color='orange', label='$\\psi_1$')
+    plt.plot(range(5,26), psi2, color='orange', linestyle='--', label='$\\psi_2$')
+    plt.plot(range(5,26), lam1, color='green', label='$\\Lambda_1$')
+    plt.plot(range(5,26), lam2, color='green', linestyle='--', label='$\\Lambda_2$')
+    plt.plot(range(5,26), ar1, color='red', label='$AR_1$')
+    plt.plot(range(5,26), ar2, color='red', linestyle='--', label='$AR_2$')
+    plt.ylabel('Optimal parameter value')
+    plt.xlabel('Number of stages')
+    plt.legend(bbox_to_anchor=(1.0,0.5), loc="center left")
+
+    plt.xticks(range(5,26,5))
+    plt.show()
+        
+if plot == 'mechs':
+    
+    te = []
+    profile = []
+    secondary = []
+    tc = []
+    
+    for ph in np.arange(0.2,1.0,0.05):
+        
+        result = turbine(Po1, To1, mdot, Omega, W, t, g, ph, psi, Lambda, AR, dho, n, ptc, ain)
+        
+        profile.append(loss_norm*result[7][0])
+        te.append(loss_norm*result[7][1])
+        secondary.append(loss_norm*result[7][3])
+        tc.append(loss_norm*result[7][4])
+    
+    plt.figure()
+    plt.plot(np.arange(0.2,1.0,0.05), profile, label='Profile', linewidth = 3)
+    plt.plot(np.arange(0.2,1.0,0.05), te, label='Trailing edge', linewidth = 3)
+    plt.plot(np.arange(0.2,1.0,0.05), secondary, label='Secondary', linewidth = 3)
+    plt.plot(np.arange(0.2,1.0,0.05), tc, label='Shroud', linewidth = 3)
+    plt.xlabel('Flow coefficient')
+    plt.ylabel('$\\Delta\\eta = \\frac{T_{out}\Delta s}{\Delta h_0}$', fontsize=15)
+    plt.legend(prop={'size':15})
+    plt.show()
+    
+    te = []
+    profile = []
+    secondary = []
+    tc = []
+    
+    for ps in np.arange(0.5,2.5,0.05):
+        
+        result = turbine(Po1, To1, mdot, Omega, W, t, g, phi, ps, Lambda, AR, dho, n, ptc, ain)
+        
+        profile.append(loss_norm*result[7][0])
+        te.append(loss_norm*result[7][1])
+        secondary.append(loss_norm*result[7][3])
+        tc.append(loss_norm*result[7][4])
+        
+    plt.figure()
+    plt.plot(np.arange(0.5,2.5,0.05), profile, label='Profile', linewidth = 3)
+    plt.plot(np.arange(0.5,2.5,0.05), te, label='Trailing edge', linewidth = 3)
+    plt.plot(np.arange(0.5,2.5,0.05), secondary, label='Secondary', linewidth = 3)
+    plt.plot(np.arange(0.5,2.5,0.05), tc, label='Shroud', linewidth = 3)
+    plt.xlabel('Stage loading coefficient')
+    plt.ylabel('$\\Delta\\eta = \\frac{T_{out}\Delta s}{\Delta h_0}$', fontsize=15)
+    plt.show()
+    
+    te = []
+    profile = []
+    secondary = []
+    tc = []
+    
+    for ns in np.arange(5,26,1):
+        
+        result = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, ns, ptc, ain)
+        
+        profile.append(loss_norm*result[7][0])
+        te.append(loss_norm*result[7][1])
+        secondary.append(loss_norm*result[7][3])
+        tc.append(loss_norm*result[7][4])
+        
+    plt.figure()
+    plt.xticks(range(5,26,5))
+    plt.plot(np.arange(5,26,1), profile, label='Profile', linewidth = 3)
+    plt.plot(np.arange(5,26,1), te, label='Trailing edge', linewidth = 3)
+    plt.plot(np.arange(5,26,1), secondary, label='Secondary', linewidth = 3)
+    plt.plot(np.arange(5,26,1), tc, label='Shroud', linewidth = 3)
+    plt.xlabel('Number of stages')
+    plt.ylabel('$\\Delta\\eta = \\frac{T_{out}\Delta s}{\Delta h_0}$', fontsize=15)
+    plt.show()
+    
+    te = []
+    profile = []
+    secondary = []
+    tc = []
+    
+    for ar in np.arange(0.4,2,0.05):
+        
+        result = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, ar, dho, n, ptc, ain)
+        
+        profile.append(loss_norm*result[7][0])
+        te.append(loss_norm*result[7][1])
+        secondary.append(loss_norm*result[7][3])
+        tc.append(loss_norm*result[7][4])
+        
+    plt.figure()
+    plt.plot(np.arange(0.4,2,0.05), profile, label='Profile', linewidth = 3)
+    plt.plot(np.arange(0.4,2,0.05), te, label='Trailing edge', linewidth = 3)
+    plt.plot(np.arange(0.4,2,0.05), secondary, label='Secondary', linewidth = 3)
+    plt.plot(np.arange(0.4,2,0.05), tc, label='Shroud', linewidth = 3)
+    plt.xlabel('Aspect ratio')
+    plt.ylabel('$\\Delta\\eta = \\frac{T_{out}\Delta s}{\Delta h_0}$', fontsize=15)
+    plt.show()
+
+    
+    

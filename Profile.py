@@ -458,10 +458,14 @@ def b2b_variable(turbine_data=new_turbine):
     sLambda2 = Slider(axLambda2, '$\Lambda_2$', 0.01, 0.99, valinit=Lambda02)
     sdho1 = Slider(axdho1, '$\Delta h_{01}$', 1, 3, valinit=dho01)
     sdho2 = Slider(axdho2, '$\Delta h_{02}$', 1, 3, valinit=dho02)
-    sAR1 = Slider(axAR1, '$AR_1$', 0.9, 2.0, valinit=AR01)
-    sAR2 = Slider(axAR2, '$AR_2$', 0.9, 2.0, valinit=AR02)
+    sAR1 = Slider(axAR1, '$AR_1$', 0.4, 2.0, valinit=AR01)
+    sAR2 = Slider(axAR2, '$AR_2$', 0.4, 2.0, valinit=AR02)
+    
+    
     sptc1 = Slider(axptc1, '$p/C_{x1}$', 0.5, 1.5, valinit=ptc01)
     sptc2 = Slider(axptc2, '$p/C_{x2}$', 0.5, 1.5, valinit=ptc02)
+    #Can probably put p/Cx in a box as it wont vary 
+    
     #Text box showing turbine efficiency
     effax = plt.axes([0.885, 0.65, 0.087, 0.04])
     eff = TextBox(effax, '', 'Efficiency: {}%'.format(np.round(100*new_turbine[0], 2)), color='1.0')
@@ -677,7 +681,7 @@ def annulus(turbine_data):
     rm = [i[0] for i in turbine_data[5]]
     n = turbine_data[11][12]
     #Initialise lists
-    l = 0
+    length = 0
     x = []
     r_hub = []
     r_cas = []
@@ -688,30 +692,30 @@ def annulus(turbine_data):
         Cxst, Cxro = chords[i]
         #Add the position to the array
         if i == 0:
-            x.append(l)
+            x.append(length)
         else:
-            x.append(l+Cxst*0.25)
+            x.append(length+Cxst*0.25)
         #Calculate the hub and case radii
         r_hub.append(rm[i]-Hst[i]/2)
         r_cas.append(rm[i]+Hst[i]/2)
         #Calculate the length along the turbine
         #First stage
         if n > 1 and i == 0:
-            l += Cxst*1.25+Cxro*1.5
+            length += Cxst*1.25+Cxro*1.5
         #Add an extra length for the final stage
         elif n > 1 and i == n-1:
-            l += Cxst*1.5+Cxro*1.25
-            x.append(l)
+            length += Cxst*1.5+Cxro*1.25
+            x.append(length)
             r_hub.append((r_hub[i]-r_hub[i-1])/(x[i]-x[i-1])*(x[i+1]-x[i])+r_hub[i])
             r_cas.append((r_cas[i]-r_cas[i-1])/(x[i]-x[i-1])*(x[i+1]-x[i])+r_cas[i])
         #If 1 stage then cut off the end
         elif n == 1:
-            l += Cxst*1.25+Cxro*1.25
-            x.append(l)
+            length += Cxst*1.25+Cxro*1.25
+            x.append(length)
             r_hub.append(r_hub[i])
             r_cas.append(r_cas[i])
         else:
-            l += Cxst*1.5+Cxro*1.5
+            length += Cxst*1.5+Cxro*1.5
     #Plot blades
     for i in range(n):
         #Extract stage parameters
