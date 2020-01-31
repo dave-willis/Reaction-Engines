@@ -6,8 +6,9 @@ cp and gamma and a new viscosity law
 #Import required modules
 import numpy as np
 from scipy import interpolate as sciint
+import scipy.integrate as integrate
 from scipy.optimize import minimize
-import csv
+from Profile import blade_dims
 
 ##########################
 ###MAIN TURBINE ROUTINE###
@@ -75,7 +76,7 @@ def turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc=-1
         ang_2 = np.degrees(ang_check[1])
         ang_3 = np.degrees(ang_check[4])
         ang_1 = ang_check[3]
-        if np.round(abs(ang_2),2) > 73.0 or np.round(abs(ang_3),2) > 73.0:
+        if np.round(abs(ang_2), 2) > 73.0 or np.round(abs(ang_3), 2) > 73.0:
             angle_warning = [True, max(abs(ang_2), abs(ang_3))]
         elif not angle_warning[0]:
             angle_warning = [False, max(abs(ang_2), abs(ang_3))]
@@ -100,25 +101,6 @@ def turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc=-1
     n_blades = 0 #Total blades in the turbine
     Fx = 0 #Axial force on rotor
     Re = 0 #Average Reynolds number
-    #Load the grid of normalised suction surface lengths and create the interpolation function
-    xin = []
-    xout = []
-    sslen = []
-    with open("ss_grid.csv") as csvfile:
-        reader = csv.reader(csvfile, quoting=csv.QUOTE_NONNUMERIC) # change contents to floats
-        line = 0
-        for row in reader: # each row is a list
-            if line == 0:
-                xout = row[1:]
-                line += 1
-            else:
-                xin.append(row[0])
-                sslen.append(row[1:])
-                line += 1
-    xout = np.asarray(xout)
-    xin = np.asarray(xin)
-    sslen = np.asarray(sslen)
-    ss_length = sciint.RectBivariateSpline(xin, xout, sslen, kx=1, ky=1)
     #Increment through every stage
     i = 0
     while i < n:
@@ -127,9 +109,9 @@ def turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc=-1
         U = r*Omega
         Vx = U*phi[i] #Axial velocity fixed by turbine parameters
         #Create size array, including the function for ss length
-        sizes = [t, g, r, ss_length]
+        sizes = [t, g, r]
         #Create array of parameters needed for the stage
-        params = [mdot, U, Vx, psi[i], phi[i], Lambda[i], a1i, AR[i], ptc[i], rep]
+        params = [mdot, Omega, U, Vx, psi[i], phi[i], Lambda[i], a1i, AR[i], ptc[i], rep]
         #Update the input conditions for the next stage
         Poin = Poi
         Toin = Toi
@@ -179,14 +161,14 @@ def stage(Po1, To1, del_ho, params, sizes, gas_props):
     #Gas properties
     cp, gamma, R = gas_props
     #Stage parameters
-    mdot, U, Vx, psi, phi, Lambda, a1, AR, ptc, rep = params
+    mdot, Omega, U, Vx, psi, phi, Lambda, a1, AR, ptc, rep = params
     #Set the angle function:
     if rep:
         find_angs = repeating
     else:
         find_angs = angles
     #Major sizes
-    t, g, r, ss = sizes
+    t, g, r = sizes
     #Initial guess for the stage work output accounting for tip leakage
     work = del_ho#*0.95
     #Calculate angles
@@ -250,8 +232,13 @@ def stage(Po1, To1, del_ho, params, sizes, gas_props):
         #Create array for the loss function
         dimensions = [t, g, r, H_st, H_ro, Cx_st, Cx_ro, w_st, w_ro]
         #Calculate the Reynolds numbers
-        ss_st = Cx_st*ss(np.degrees(a1), np.degrees(a2))[0][0]
-        ss_ro = Cx_ro*ss(np.degrees(b2), np.degrees(b3))[0][0]
+        #Run the profile generator for SS length and section area
+        stator_dims = blade_dims(np.degrees(a1), np.degrees(a2), t, Cx_st)
+        rotor_dims = blade_dims(np.degrees(b2), np.degrees(b3), t, Cx_ro)
+        stator_A = stator_dims[0]
+        ss_st = stator_dims[1]
+        rotor_A = rotor_dims[0]
+        ss_ro = rotor_dims[1]
         Res = [rho2*V2*ss_st/mu2, rho3*W3*ss_ro/mu3]
         #Find the losses across the stator and rotor
         loss_calc = losses(angs, vels, states, dimensions, Res)
@@ -277,14 +264,11 @@ def stage(Po1, To1, del_ho, params, sizes, gas_props):
     ptc_ro = p_w(Cx_ro, b2, b3, ptc)[1]
     dimensions.append(ptc_st)
     dimensions.append(ptc_ro)
-    #Stage mass
-    m_vessel_st = (vessel_mass(P1, r+H1/2, 1.5*Cx_st)+vessel_mass(P2, r+H2/2, 1.5*Cx_st))/2
-    m_vessel_ro = (vessel_mass(P2, r+H2/2, 1.5*Cx_ro)+vessel_mass(P3, r+H3/2, 1.5*Cx_ro))/2
-    m_drum = drum_mass(r-H_st/2, 1.5*Cx_st)+drum_mass(r-H_ro/2, 1.5*Cx_ro)
-    m_blade = blade_mass(r, ptc_st, H_st, Cx_st)[0]+blade_mass(r, ptc_ro, H_ro, Cx_ro)[0]
-    mass = m_vessel_st+m_vessel_ro+m_drum+m_blade
-    #Total number of blades in the stage
-    n_blades = blade_mass(r, ptc_st, H_st, Cx_st)[1]+blade_mass(r, ptc_ro, H_ro, Cx_ro)[1]
+    #Stage mass and blades
+    blade_areas = [stator_A, rotor_A]
+    mass_calc = stage_mass(To1, Po1, dimensions, Omega, blade_areas)
+    mass = mass_calc[0]
+    n_blades = mass_calc[1]
     #Axial force on rotor
     Fx = blade_force(P2, P3, r, H2, H3)
 
@@ -380,6 +364,7 @@ def losses(angs, vels, states, dimensions, Res):
 def profile(Re, a1, a2, V, T):
     """Return the profile entropy rise for the stage"""
 
+    #Denton 1993
     v_frac = 1/np.sqrt(3) #Fix the idealised velocity fraction
     #Calculate dissipation coefficient using correlation
     Cd = 0.002*(Re/500000)**(-0.2)
@@ -393,6 +378,7 @@ def profile(Re, a1, a2, V, T):
 def TE(t, w, zeta_profile, V, T):
     """Return the trailing edge entropy rise for the stage"""
 
+    #Denton 1993
     SF = 1.4 #Fix the shape function for a turbulent boundary layer
     Cpb = -0.15 #Fix the base pressure coefficient
     #Calculate the momentum boundary layer thickness using profile loss coefficient
@@ -420,6 +406,7 @@ def EW(rho, V, r, Cx, T, mdot):
 def secondary(a1, a2, Cx, H, V, T):
     """Return the secondary flow entropy rise for the stage"""
 
+    #Dunham & Came 1970
     #Calculate the vector mean air angle
     am = np.arctan(0.5*(np.tan(a1)+np.tan(a2)))
     #Calculate the stagnation pressure loss coefficient
@@ -432,6 +419,7 @@ def secondary(a1, a2, Cx, H, V, T):
 def TC(g, H, a1, a2, V2, T):
     """Return the tip leakage entropy rise for the stage"""
 
+    #Denton 1993
     Cc = 0.6 #Fix the shroud contraction coefficient
     #Calculate the leakage mass flow fraction
     m = g*Cc*np.sqrt(abs((1/np.cos(a2))**2-np.tan(a1)**2))/H
@@ -512,44 +500,196 @@ def p_w(Cx, a1, a2, ptoC):
 
     return w, ptc
 
-##############################
-###MASS AND FORCE FUNCTIONS###
-##############################
+########################################
+###MASS, THERMAL AND STRESS FUNCTIONS###
+########################################
 
-def vessel_mass(Pin, r, l):
-    """Return the pressure vessel mass required using Tresca"""
+def steel(T):
+    """Return the properties of steel at temperature T"""
 
-    sigma_yield = 500*10**6 #Yield stress of steel in Pa
-    rho_m = 7840 #Density of steel in kg/m^3
-    safety_fac = 1.5 #Use a safety factor
-    #Calculate wall thickness required with hoop stress
-    t = safety_fac*Pin*r/sigma_yield
-    #Calculate the mass of the vessel assuming thin walled
-    m = rho_m*2*np.pi*r*l*t
+    #Poission's ratio (Eurocode 3)
+    nu_m = 0.3
+    #Density (Eurocode 3)
+    rho_m = 7850
+    #Thermal strain (Eurocode 3)
+    strain = 1.2*10**(-5)*(T-273)+4*10**(-9)*(T-273)**2-2.416*10**(-4)
+    #Specific heat capacity (Eurocode 3)
+    if T < 873:
+        c_m = 425+7.73*10**(-1)*(T-273)-1.69*10**(-3)*(T-273)**2+2.22*10**(-6)*(T-273)**3
+    else:
+        c_m = 666+13002/(1011-T)
+    #Thermal conductivity (Eurocode 3)
+    lambda_m = 54-3.33*(10**(-2)*(T-273))
+    #Yield stress (Wang, Liu & Kodur 2013)
+    if T < 723:
+        sigma_m = 500*10**6
+    else:
+        sigma_m = (4.32*np.exp(-(T-273)/880)-1.6)*500*10**6
+    #Young's modulus
+    E_m = (1.02-0.035*np.exp((T-273)/280))*210*10**9
 
-    return m
+    return nu_m, rho_m, strain, c_m, lambda_m, sigma_m, E_m
 
-def drum_mass(r, l):
-    """Return the mass of the drum for the blade row"""
+def inconel(T):
+    """Return the properties of Inconel 718 at temperature T"""
 
-    rho_m = 7840 #Density of steel in kg/m^3
-    thk = 0.1*r #Drum wall thickness
-    #Calculate the mass of the drum
-    m = rho_m*l*2*np.pi*r*thk
+    #Poission's ratio (Díaz-Álvarez et al. 2017)
+    nu_m = 0.3
+    #Density (Díaz-Álvarez et al. 2017)
+    rho_m = 8300
+    #Thermal strain (Lewandowski & Overfelt 1999)
+    strain = integrate.quad(lambda x: (1.28+5*10**(-4)*(x-366))*10**(-5), 293, T)
+    #Specific heat capacity (Díaz-Álvarez et al. 2017)
+    c_m = 400+0.15*np.exp((T-300)/90)
+    #Thermal conductivity (Díaz-Álvarez et al. 2017)
+    lambda_m = (1/60)*T+5
+    #Yield stress (Woo & Lee 2019)
+    sigma_m = (1250-np.exp((T-273)/128))*10**6
+    #Young's modulus (Thomas et el. 2006)
+    E_m = 166.2*(1+nu_m)*(1-0.5*(T-300)/1673)
 
-    return m
+    return nu_m, rho_m, strain, c_m, lambda_m, sigma_m, E_m
 
-def blade_mass(rm, ptc, H, Cx):
+def blade_mass(blade_sizes, rho_m, row_type, shroud=True):
     """Return the mass of the blades in the blade row"""
 
-    rho_m = 8970 #Density of Inconel 188 in kg/m^3
-    t_av = Cx*0.1 #Define an average blade thickness relative to the chord
+    rm, ptc, H, Cx, A = blade_sizes
     #Calculate the total number of blades
-    n = round(2*np.pi*rm/(ptc*Cx))
-    #Approximate blade as flate plate to calculate mass
-    m = rho_m*H*Cx*t_av*n
+    N = round(2*np.pi*rm/(ptc*Cx))
+    #Calculate blade mass
+    m = rho_m*H*A*N
+    #Include shroud mass if specified
+    m_shroud = 0
+    if shroud:
+        #Shroud thickness of 3mm
+        t_shroud = 0.003
+        #Calculation different on rotor or stator
+        if row_type == 'rotor':
+            #Single blade shroud mass
+            m_shroud = rho_m*Cx*t_shroud*2*np.pi*(rm+H/2)/N
+        elif row_type == 'stator':
+            #Single blade shroud mass
+            m_shroud = rho_m*Cx*t_shroud*2*np.pi*(rm-H/2)/N
+        else:
+            print('No row type specified')
+        #Add to total
+        m += m_shroud
+    
+    return m, N, m_shroud
 
-    return m, n
+def blade_stress(rm, H, omega, Cx, N, rho_m, A, m_shroud, sigma_y):
+    """Return the blade root stress"""
+
+    #Find the hub and rip radii
+    rt = rm+H/2
+    rh = rm-H/2
+    #Find the stress
+    sigma_root = 0.5*rho_m*rt**2*omega**2*(1-(rh/rt)**2)+m_shroud*rt*omega**2/A
+    #Warn if root stress exceeds yield
+    if sigma_root > sigma_y:
+        print('WARNING: MATERIAL LIMITS EXCEEDED AT BLADE ROOT')
+    #Find the apparent pressure on the rotor ring from the blades
+    P_blades = N*sigma_root*A/(2*np.pi*rh*1.5*Cx)
+
+    return P_blades
+
+def rotor_mass(rm, H, Cx, sigma_y, Po1, P_blades, omega, rho_m, nu):
+    """Return the mass of the rotor ring"""
+
+    #Find the outer radius of the hub
+    Ro = rm-H/2
+    #First find the rotating condition with no external pressure
+    a = rho_m*omega**2*(1-nu)
+    b = 2*(rho_m*omega**2*Ro**2*(1+nu)-2*sigma_y)
+    c = 4*sigma_y*Ro**2-8*P_blades*Ro**2-rho_m*omega**2*(3+nu)*Ro**4
+    #If the material is not strong enough then the equation breaks down. Set Ri to 0
+    #and post a warning
+    if (-b-np.sqrt(b**2-4*a*c))/(2*a) < 0:
+        Ri_rot = 0
+        print('WARNING: MATERIAL LIMITS EXCEEDED IN ROTOR: BURST')
+    else:
+        Ri_rot = np.sqrt((-b-np.sqrt(b**2-4*a*c))/(2*a))
+    #Find the static condition with only external pressure. Again check if material
+    #limits are reached
+    if Ro**2*(sigma_y-2*Po1) < 0:
+        Ri_P = 0
+        print('WARNING: MATERIAL LIMITS EXCEEDED: PRESSURE')
+    else:
+        Ri_P = np.sqrt(Ro**2*(sigma_y-2*Po1)/sigma_y)
+    #Take whichever inner radius is smaller
+    if Ri_rot < Ri_P:
+        Ri = Ri_rot
+    else:
+        Ri = Ri_P
+    #Calculate the mass of the rotor ring
+    m = rho_m*1.5*Cx*np.pi*(Ro**2-Ri**2)
+
+    return m, Ri
+
+def stator_mass(rm, H, Cx_st, Cx_ro, sigma_y, Po1, rho_m):
+    """Return the mass of the stator ring"""
+
+    #Find the inner radius of the case
+    Ri = rm+H/2
+    #Find the outer radius required to resist the pressure
+    Ro = np.sqrt(sigma_y*Ri**2/(sigma_y-2*Po1))
+    #Calculate the mass of the case, which has to cover the rotor too
+    m = rho_m*1.5*(Cx_st+Cx_ro)*np.pi*(Ro**2-Ri**2)
+
+    return m, Ro
+
+def stage_mass(To1, Po1, dimensions, Omega, blade_areas):
+    """Return the total mass of the stage"""
+
+    #Extract values from list
+    t, g, r, H_st, H_ro, Cx_st, Cx_ro, w_st, w_ro, ptc_st, ptc_ro = dimensions
+    A_st, A_ro = blade_areas
+    #Set the materials for the rotor and stator
+    rotor_mat = 'inconel'
+    stator_mat = 'inconel'
+    #Set safety factors
+    SF_st = 1.0
+    SF_ro = 1.0
+    #Find the properties for the stator material:
+    if stator_mat == 'inconel':
+        nu_m, rho_m, strain, c_m, lambda_m, sigma_m, E_m = inconel(To1)
+    if stator_mat == 'steel':
+        nu_m, rho_m, strain, c_m, lambda_m, sigma_m, E_m = steel(To1)
+    #Find the mass and number of stator blades
+    stator_blade_sizes = [r, ptc_st, H_st, Cx_st, A_st]
+    stator_blade_calc = blade_mass(stator_blade_sizes, rho_m, 'stator')
+    stator_blade_mass = stator_blade_calc[0]
+    stator_blade_N = stator_blade_calc[1]
+    #Find the mass of the stator case and sum
+    stator_case_calc = stator_mass(r, H_st, Cx_st, Cx_ro, sigma_m/SF_st, Po1, rho_m)
+    stator_case_mass = stator_case_calc[0]
+    stator_Ro = stator_case_calc[1]
+    stator_total_mass = stator_case_mass+stator_blade_mass
+    #Find the properties for the rotor material:
+    if rotor_mat != stator_mat:
+        if rotor_mat == 'inconel':
+            nu_m, rho_m, strain, c_m, lambda_m, sigma_m, E_m = inconel(To1)
+        if rotor_mat == 'steel':
+            nu_m, rho_m, strain, c_m, lambda_m, sigma_m, E_m = steel(To1)
+    #Find the mass and number of rotor blades
+    rotor_blade_sizes = [r, ptc_ro, H_ro, Cx_ro, A_ro]
+    rotor_blade_calc = blade_mass(rotor_blade_sizes, rho_m, 'rotor')
+    rotor_blade_mass = rotor_blade_calc[0]
+    rotor_blade_N = rotor_blade_calc[1]
+    m_shroud = rotor_blade_calc[2]
+    #Find the stress from the rotor blade roots
+    P_blades = blade_stress(r, H_ro, Omega, Cx_ro, rotor_blade_N, rho_m, A_ro, m_shroud, sigma_m/SF_ro)
+    #Find the mass of the rotor ring
+    rotor_ring_calc = rotor_mass(r, H_ro, Cx_ro, sigma_m/SF_ro, Po1, P_blades, Omega, rho_m, nu_m)
+    rotor_ring_mass = rotor_ring_calc[0]
+    rotor_Ri = rotor_ring_calc[1]
+    rotor_total_mass = rotor_ring_mass+rotor_blade_mass
+    #Sum for total mass and blades
+    stage_mass = rotor_total_mass+stator_total_mass
+    stage_blades = rotor_blade_N+stator_blade_N
+
+    return stage_mass, stage_blades, rotor_mass, stator_mass, stator_Ro, rotor_Ri
+
 
 def blade_force(P1, P2, r, H1, H2):
     """Return the axial force on the blade row"""

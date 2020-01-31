@@ -1,87 +1,112 @@
-#import itertools
 import numpy as np
 
-#n = len(np.arange(5, 11))
-#phi = len(np.arange(0.2, 0.9, 0.3))
-#psi = len(np.arange(0.6, 2, 0.3))
-#Lambda = len(np.arange(0.2,0.9,0.3))
-#AR = len(np.arange(0.9, 2.0, 0.5))
-#dho = len(np.arange(1, 1.2, 0.1))
-#a1 = len(np.arange(0, 20, 2))
+#sigma_y = 300*10**6
+#rho = 8300
+#omega = 6782*2*np.pi/60
+#Ro = 0.5
+#nu = 0.3
+#P = 145*10**5
 #
-#num = AR*phi**2*psi**2*dho**2*Lambda**2
+#a = rho*omega**2*(1-nu)
+#b = 2*(rho*omega**2*Ro**2*(1+nu)-2*sigma_y)
+#c = 4*sigma_y*Ro**2-8*P*Ro**2-rho*omega**2*(3+nu)*Ro**4
 #
-#print(num)
-
-
-import csv
-import scipy.interpolate as sciint
-
-table = []
-xin = []
-xout = []
-sslen = []
-with open("ss_length.csv") as csvfile:
-    reader = csv.reader(csvfile, quoting=csv.QUOTE_NONNUMERIC) # change contents to floats
-    for row in reader: # each row is a list
-        table.append(row)
-        xin.append(row[0])
-        xout.append(row[1])
-        sslen.append(row[2])
-        
-xout.insert(1,'')
-        
-with open('ss_grid.csv', mode='w') as ss_grid:
-    table_writer = csv.writer(ss_grid, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-    table_writer.writerow(xout[1:81])
-    for i in range(1, int(len(xin)/80)):
-        row = sslen[80*i+1:80*(i+1)]
-        row.insert(0, xin[80*i])
-        table_writer.writerow(row)
-
-table = []       
-with open("ss_grid.csv") as csvfile:
-    reader = csv.reader(csvfile, quoting=csv.QUOTE_NONNUMERIC) # change contents to floats
-    for row in reader: # each row is a list
-        table.append(row)
-
-for i in range(1, len(table)):
-    for j in range(1, len(table[0])):
-        if table[i][0] > table[0][j]:
-            table[i][j] = table[len(table)-i][len(table[0])-j]
-            
-with open('ss_grid.csv', mode='w') as ss_grid:
-    table_writer = csv.writer(ss_grid, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-    for row in table:
-        table_writer.writerow(row)
-        
-#with open("ss_grid.csv") as csvfile:
-#    reader = csv.reader(csvfile, quoting=csv.QUOTE_NONNUMERIC) # change contents to floats
-#    line = 0
-#    for row in reader: # each row is a list
-#        table.append(row)
-#        if line == 0:
-#            xout = row[1:]
-#            line += 1
-#        else:
-#            xin.append(row[0])
-#            sslen.append(row[1:])
-#            line += 1
+#dis = 4*np.sqrt(sigma_y**2+rho**2*omega**4*Ro**4+2*rho*omega**2*Ro**2*(P*(1-nu)-sigma_y))
 #
-#xout = np.asarray(xout)
-#xin = np.asarray(xin)
-#sslen = np.asarray(sslen)
-#print(xout.size)
-#print(xin.size)
-#print(sslen.shape)    
-#import time
-#start = time.time()       
-#f1 = sciint.interp2d(xout, xin, sslen)
-#print(time.time()-start)
-#print(f1(69.67,31.345))
-#print(time.time()-start)
-#start = time.time()  
-#f2 = sciint.RectBivariateSpline(xin, xout, sslen, kx=1, ky=1)
-#print(time.time()-start)
-#print(f2(31.345,69.67)[0][0])
-#print(time.time()-start)
+#print('a:',a)
+#print('b:',b)
+#print('c:',c)
+#print('discriminant:',sigma_y**2+rho**2*omega**4*Ro**4+2*rho*omega**2*Ro**2*(P*(1-nu)-sigma_y))
+#
+#print('Dis. check:',dis-np.sqrt(b**2-4*a*c))
+#
+#Ri = np.sqrt((-b-np.sqrt(b**2-4*a*c))/(2*a))
+#
+#print('Ri:',Ri)
+#
+#sigma = rho*omega**2/4*((3+nu)*Ro**2+(1-nu)*Ri**2)+2*P*Ro**2/(Ro**2-Ri**2)
+#
+#print('Calc. check:',sigma-sigma_y)
+#
+#Ri=0.21
+#
+#sig_P = 2*P*Ro**2/(Ro**2-Ri**2)
+#
+#sig_r = rho*omega**2/4*((3+nu)*Ro**2+(1-nu)*Ri**2)
+#
+#print('Yield stress:',"{:.2e}".format(sigma_y))
+#print('Pressure stress:',"{:.2e}".format(sig_P))
+#print('Rotation stress:',"{:.2e}".format(sig_r))
+#print('Stress sum:',"{:.2e}".format(abs(sig_r+sig_P)))
+#Ri=0.6
+#print(np.sqrt(sigma_y*Ri**2/(sigma_y-2*P)))
+
+from Profile import blade_dims
+
+print(blade_dims(0,70,0.01,0.05)[0], blade_dims(0,70,0.01,1)[0]*0.05**2)
+print(blade_dims(0,70,0.01,0.05)[1], blade_dims(0,70,0.01,1)[1]*0.05)
+
+#
+#def radial_stress(Ri):
+#    
+#    test_max = Ro**2*Ri**2*(1-8*P/(rho*omega**2*(3+nu)*(Ro**2-Ri**2)))
+#  
+#    if test_max > 0:
+#        r = test_max**0.25
+#    else:
+#        r = Ro
+#    
+#    sigma_rot = rho*omega**2/8*(Ro**2+Ri**2-Ro**2*Ri**2/r**2-r**2)
+#    
+#    sigma_p = P*Ro**2*(r**2-Ri**2)/(r**2*(Ro**2-Ri**2))
+#    
+#    sigma_rad = sigma_rot-sigma_p
+#   
+#    return sigma_y-abs(sigma_rad)
+#
+#
+#def tan_stress(Ri):
+#
+#    test_max = Ro**2*Ri**2*(8*P/(rho*omega**2*(1+3*nu)*(Ro**2-Ri**2))-(3+nu)/(1+3*nu))
+#    test_Ri = rho*omega**2/4*((3+nu)*Ro**2+(1-nu)*Ri**2)-2*P*Ro**2/(Ro**2-Ri**2)
+#    test_Ro = rho*omega**2/4*((3+nu)*Ri**2+(1-nu)*Ro**2)-2*P*(Ro**2+Ri**2)/(Ro**2-Ri**2)
+#  
+#    if test_max > 0:
+#        r = test_max**0.25
+#        
+#        sigma_rot = rho*omega**2/8*((3+nu)*(Ro**2+Ri**2+Ro**2*Ri**2/r**2)-(1+3*nu)*r**2)
+#        
+#        sigma_p = P*Ro**2*(r**2+Ri**2)/(r**2*(Ro**2-Ri**2))
+#        
+#        sigma_tan = sigma_rot-sigma_p
+#        
+#    elif abs(test_Ri) > abs(test_Ro):
+#        
+#        sigma_tan = test_Ri
+#        
+#    else:
+#        
+#        sigma_tan = test_Ro
+#    
+#    return sigma_y-abs(sigma_tan)
+#
+#def Radius_i(Ri):
+#    return -Ri
+#
+#from scipy.optimize import minimize
+##Form the starting point list
+#x0 = [0.99*Ro]
+##Form the tuple of bounds
+#bnds = [(0,Ro)]
+##Form the tuple of constraints
+#cons = cons = ({'type': 'ineq', 'fun': tan_stress}, {'type': 'ineq', 'fun': radial_stress})
+##Find the minimum
+#res = minimize(Radius_i, x0, method='SLSQP', bounds=bnds, constraints=cons)
+##Extract the optimal variable and return them
+#print(res['x'])
+#print(tan_stress(res['x'])+sigma_y)
+#print(radial_stress(res['x'])+sigma_y)
+#
+#Ri = res['x']
+#
+#print(Ro**2*Ri**2*(8*P/(rho*omega**2*(1+3*nu)*(Ro**2-Ri**2))-(3+nu)/(1+3*nu)))

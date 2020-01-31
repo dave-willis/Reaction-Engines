@@ -1,6 +1,6 @@
 """Calculations for evaluating turbine performance"""
 
-from Stage import turbine, optimise
+from Turbine import turbine, optimise
 import matplotlib.pyplot as plt
 import numpy as np
 import time
@@ -39,7 +39,7 @@ dho = [1.0, 1.1]
 #ain = 0
 #dho = [1.0, 1.106]
 
-plot = 'opt'
+plot = 'mechs'
 save = ''
 start_time = time.time()
 result = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, ain)
@@ -112,15 +112,18 @@ if plot == 'opt':
     plt.xticks(range(5,26,5))
     plt.figure()
     plt.plot(range(5,26), n_blades, 'x')
-    plt.ylabel('Number of blades')
-    plt.xlabel('Number of stages')
+    plt.ylabel('Number of blades', fontsize=17)
+    plt.xlabel('Number of stages', fontsize=17)
+    plt.tick_params(axis="x", labelsize=15)
+    plt.tick_params(axis="y", labelsize=15)
     plt.xticks(range(5,26,5))
+#    plt.savefig("n_blades.eps",format='eps',bbox_inches='tight')
     plt.figure()
     plt.plot(range(5,26), phim, label='$\\phi$', linewidth = 2)
     plt.plot(range(5,26), psim, label='$\\psi$', linewidth = 2)
     plt.plot(range(5,26), lamm, label='$\\Lambda$', linewidth = 2)
     plt.plot(range(5,26), arm, label='AR', linewidth = 2)
-#    plt.plot(range(5,26), dh1, color='gray', label='$\\frac{\\Delta h_0,2}{\\Delta h_0,1}$', linewidth = 2)
+    plt.plot(range(5,26), dh1, color='gray', label='$\\frac{\\Delta h_0,2}{\\Delta h_0,1}$', linewidth = 2)
     plt.plot(range(5,26), eff, label='$\\eta$', linewidth = 2)
     plt.ylabel('Optimal parameter value')
     plt.xlabel('Number of stages')
@@ -135,9 +138,14 @@ if plot == 'opt':
     plt.plot(range(5,26), lam2, color='green', linestyle='--', label='$\\Lambda_2$')
     plt.plot(range(5,26), ar1, color='red', label='$AR_1$')
     plt.plot(range(5,26), ar2, color='red', linestyle='--', label='$AR_2$')
-    plt.ylabel('Optimal parameter value')
-    plt.xlabel('Number of stages')
-    plt.legend(bbox_to_anchor=(1.0,0.5), loc="center left")
+    plt.plot(range(5,26), dh1, color='gray', label='$\\frac{\\Delta h_{0,2}}{\\Delta h_{0,1}}$', linewidth = 2)
+    plt.plot(range(5,26), eff, label='$\\eta$', linewidth = 2)
+    plt.ylabel('Optimal parameter value', fontsize=17)
+    plt.xlabel('Number of stages', fontsize=17)
+    plt.legend(bbox_to_anchor=(1.0,0.5), loc="center left", prop={'size':15})
+    plt.tick_params(axis="x", labelsize=15)
+    plt.tick_params(axis="y", labelsize=15)
+    plt.savefig("Optimal.eps",format='eps',bbox_inches='tight')
 
     plt.xticks(range(5,26,5))
     plt.show()
@@ -163,9 +171,11 @@ if plot == 'mechs':
     plt.plot(np.arange(0.2,1.0,0.05), te, label='Trailing edge', linewidth = 3)
     plt.plot(np.arange(0.2,1.0,0.05), secondary, label='Secondary', linewidth = 3)
     plt.plot(np.arange(0.2,1.0,0.05), tc, label='Shroud', linewidth = 3)
-    plt.xlabel('Flow coefficient')
-    plt.ylabel('$\\Delta\\eta = \\frac{T_{out}\Delta s}{\Delta h_0}$', fontsize=15)
-    plt.legend(prop={'size':15})
+    plt.xlabel('$\\phi$', fontsize=35)
+    plt.ylabel('$\\frac{T_{out}\Delta s}{\Delta h_0}$', fontsize=35)
+    plt.tick_params(axis="x", labelsize=30)
+    plt.tick_params(axis="y", labelsize=30)
+    plt.legend(prop={'size':33})
     plt.show()
     
     te = []
@@ -187,8 +197,10 @@ if plot == 'mechs':
     plt.plot(np.arange(0.5,2.5,0.05), te, label='Trailing edge', linewidth = 3)
     plt.plot(np.arange(0.5,2.5,0.05), secondary, label='Secondary', linewidth = 3)
     plt.plot(np.arange(0.5,2.5,0.05), tc, label='Shroud', linewidth = 3)
-    plt.xlabel('Stage loading coefficient')
-    plt.ylabel('$\\Delta\\eta = \\frac{T_{out}\Delta s}{\Delta h_0}$', fontsize=15)
+    plt.xlabel('$\\psi$', fontsize=35)
+    plt.ylabel('$\\frac{T_{out}\Delta s}{\Delta h_0}$', fontsize=35)
+    plt.tick_params(axis="x", labelsize=20)
+    plt.tick_params(axis="y", labelsize=20)
     plt.show()
     
     te = []
@@ -211,8 +223,10 @@ if plot == 'mechs':
     plt.plot(np.arange(5,26,1), te, label='Trailing edge', linewidth = 3)
     plt.plot(np.arange(5,26,1), secondary, label='Secondary', linewidth = 3)
     plt.plot(np.arange(5,26,1), tc, label='Shroud', linewidth = 3)
-    plt.xlabel('Number of stages')
-    plt.ylabel('$\\Delta\\eta = \\frac{T_{out}\Delta s}{\Delta h_0}$', fontsize=15)
+    plt.xlabel('$n$', fontsize=35)
+    plt.ylabel('$\\frac{T_{out}\Delta s}{\Delta h_0}$', fontsize=35)
+    plt.tick_params(axis="x", labelsize=20)
+    plt.tick_params(axis="y", labelsize=20)
     plt.show()
     
     te = []
@@ -234,8 +248,10 @@ if plot == 'mechs':
     plt.plot(np.arange(0.4,2,0.05), te, label='Trailing edge', linewidth = 3)
     plt.plot(np.arange(0.4,2,0.05), secondary, label='Secondary', linewidth = 3)
     plt.plot(np.arange(0.4,2,0.05), tc, label='Shroud', linewidth = 3)
-    plt.xlabel('Aspect ratio')
-    plt.ylabel('$\\Delta\\eta = \\frac{T_{out}\Delta s}{\Delta h_0}$', fontsize=15)
+    plt.xlabel('AR', fontsize=35)
+    plt.ylabel('$\\frac{T_{out}\Delta s}{\Delta h_0}$', fontsize=35)
+    plt.tick_params(axis="x", labelsize=20)
+    plt.tick_params(axis="y", labelsize=20)
     plt.show()
 
     

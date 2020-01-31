@@ -1,7 +1,7 @@
 """Calculations for evaluating turbine performance"""
 
-from Stage import turbine, angles, spline, optimise
-from Profile import b2b_variable, b2b_plot, annulus
+from Turbine import turbine, angles, spline, optimise
+#from GUI import b2b_variable, b2b_plot, annulus
 import numpy as np
 import time
 from multiprocessing import cpu_count
@@ -52,11 +52,10 @@ start_time = time.time()
 result = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, ain)
 print('Time: {} s'.format(time.time()-start_time))
 #print('Angles [a1,a2,b2,a3,b3]=', np.round(result[10],2))
-print('Chords [Cxst,Cxro]=', np.round([[i[3],i[4]] for i in result[5]],6))
+#print('Chords [Cxst,Cxro]=', np.round([[i[3],i[4]] for i in result[5]],6))
 print('Work = {} W'.format(result[1]))
 print('Efficiency = {}'.format(result[0]))
 print('Mass = {} kg'.format(result[2]))
-print('Volume = {} m^3'.format(result[3]))
 print('No. Blades = {}'.format(int(result[6])))
 print('Axial force on rotor = {} N'.format(result[13]))
 print('Average Re = {}'.format(result[14]))
