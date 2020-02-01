@@ -250,7 +250,7 @@ def Profile(X1, X2, TKTE, Cx, points=500):
     YPIN = (YPIN-yoffset)/XScale	### center on peak thickness - DEFAULTS STACKING TO PEAK THICKNESS
     YSIN = (YSIN-yoffset)/XScale	### center on peak thickness - DEFAULTS STACKING TO PEAK THICKNESS
     YIN = (YIN - yoffset)/XScale ### center on peak thickness - DEFAULTS STACKING TO PEAK THICKNESS
-        
+
     TE_circ_r = 0.5*((abs(XSIN[-1]-XPIN[-1]))**2+(abs(YSIN[-1]-YPIN[-1]))**2)**0.5
     TE_circ_cx = 0.5*(XSIN[-1]+XPIN[-1])
     TE_circ_cy = 0.5*(YSIN[-1]+YPIN[-1])
@@ -271,7 +271,6 @@ def Profile(X1, X2, TKTE, Cx, points=500):
     TEcy = [cx*i for i in TEcy]
     TEcx2 = [cx*i for i in TEcx2]
     TEcy2 = [cx*i for i in TEcy2]
-    
 
     return(XP, YP, XS, YS, TEcx, TEcy, TEcx2, TEcy2)
 
@@ -317,13 +316,13 @@ def make_grid():
     xout = []
     sslen = []
     profile_area = []
-    #Loop over reasonable ranges of inlet and exit angle, ensure exit is 
+    #Loop over reasonable ranges of inlet and exit angle, ensure exit is
     #greater than inlet for convenience
-    for a1 in range(-60,62,2):
-        for a2 in range(-80,82,2):
+    for a1 in range(-60, 62, 2):
+        for a2 in range(-80, 82, 2):
             x1 = a1
             x2 = a2
-            if a2<a1:
+            if a2 < a1:
                 x1 = -a1
                 x2 = -a2
             #Calculate SS length and blade area, with a representative TE/Cx
@@ -333,7 +332,7 @@ def make_grid():
             sslen.append(calc[1])
             profile_area.append(calc[0])
     #Add a blank space to the start of xin for the top left corner of the grid
-    xout.insert(0,'')
+    xout.insert(0, '')
     #Create a grid for the SS lengths
     with open('ss_grid.csv', mode='w') as ss_grid:
         table_writer = csv.writer(ss_grid, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
@@ -354,66 +353,3 @@ def make_grid():
             row = profile_area[81*i:81*(i+1)]
             row.insert(0, xin[81*i])
             table_writer.writerow(row)
-
-# make_grid()
-from scipy import interpolate as sciint
-#Load the grid of normalised suction surface lengths and create the interpolation function
-xin = []
-xout = []
-sslen = []
-with open("ss_grid.csv") as csvfile:
-    reader = csv.reader(csvfile, quoting=csv.QUOTE_NONNUMERIC) # change contents to floats
-    line = 0
-    for row in reader: # each row is a list
-        if line == 0:
-            xout = row[1:]
-            line += 1
-        else:
-            xin.append(row[0])
-            sslen.append(row[1:])
-            line += 1
-xout = np.asarray(xout)
-xin = np.asarray(xin)
-sslen = np.asarray(sslen)
-ss_length = sciint.RectBivariateSpline(xin, xout, sslen, kx=1, ky=1)
-
-print(0.006*ss_length(33,75))
-print(blade_dims(33,75,0.0003,0.006)[1])
-
-# with open("blade_table.csv") as csvfile:
-#     reader = csv.reader(csvfile, quoting=csv.QUOTE_NONNUMERIC) # change contents to floats
-#     for row in reader: # each row is a list
-#         table.append(row)
-#         xin.append(row[0])
-#         xout.append(row[1])
-#         sslen.append(row[2])
-#         profile_area.append(row[3])
-        
-# table = []       
-# with open("ss_grid.csv") as csvfile:
-#     reader = csv.reader(csvfile, quoting=csv.QUOTE_NONNUMERIC) # change contents to floats
-#     for row in reader: # each row is a list
-#         table.append(row)
-        
-# for i in range(1, len(table)):
-#     for j in range(1, len(table[0])):
-#         if table[i][0] > table[0][j]:
-#             table[i][j] = table[len(table)-i][len(table[0])-j]
-
-# with open('ss_grid.csv', mode='w') as ss_grid:
-#     table_writer = csv.writer(ss_grid, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-#     for row in table:
-#         table_writer.writerow(row)
-
-# with open("ss_grid.csv") as csvfile:
-#     reader = csv.reader(csvfile, quoting=csv.QUOTE_NONNUMERIC) # change contents to floats
-#     line = 0
-#     for row in reader: # each row is a list
-#         table.append(row)
-#         if line == 0:
-#             xout = row[1:]
-#             line += 1
-#         else:
-#             xin.append(row[0])
-#             sslen.append(row[1:])
-#             line += 1

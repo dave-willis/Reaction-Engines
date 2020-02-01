@@ -9,6 +9,7 @@ from scipy import interpolate as sciint
 import scipy.integrate as integrate
 from scipy.optimize import minimize
 from Profile import blade_dims
+import csv
 
 ##########################
 ###MAIN TURBINE ROUTINE###
@@ -101,6 +102,45 @@ def turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc=-1
     n_blades = 0 #Total blades in the turbine
     Fx = 0 #Axial force on rotor
     Re = 0 #Average Reynolds number
+    #Select the function for calculating blade dimensions depending on speed wanted
+    fast_dimensions = False
+    if fast_dimensions:
+        #Load the grid of normalised suction surface lengths and create the interpolation function
+        xin = []
+        xout = []
+        sslen = []
+        areas = []
+        with open("ss_grid.csv") as csvfile:
+            reader = csv.reader(csvfile, quoting=csv.QUOTE_NONNUMERIC) # change contents to floats
+            line = 0
+            for row in reader: # each row is a list
+                if line == 0:
+                    xout = row[1:]
+                    line += 1
+                else:
+                    xin.append(row[0])
+                    sslen.append(row[1:])
+                    line += 1
+        with open("Profile_areas.csv") as csvfile:
+            reader = csv.reader(csvfile, quoting=csv.QUOTE_NONNUMERIC) # change contents to floats
+            line = 0
+            for row in reader: # each row is a list
+                if line == 0:
+                    line += 1
+                else:
+                    areas.append(row[1:])
+                    line += 1
+        #Make the lists numpy arrays for the interpolation
+        xout = np.asarray(xout)
+        xin = np.asarray(xin)
+        sslen = np.asarray(sslen)
+        areas = np.asarray(areas)
+        #Make the interpolation functions
+        ss_length = sciint.RectBivariateSpline(xin, xout, sslen, kx=1, ky=1)
+        profile_area = sciint.RectBivariateSpline(xin, xout, areas, kx=1, ky=1)
+        dim_fs = [True, ss_length, profile_area]
+    else:
+        dim_fs = [False]
     #Increment through every stage
     i = 0
     while i < n:
@@ -109,7 +149,7 @@ def turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc=-1
         U = r*Omega
         Vx = U*phi[i] #Axial velocity fixed by turbine parameters
         #Create size array, including the function for ss length
-        sizes = [t, g, r]
+        sizes = [t, g, r, dim_fs]
         #Create array of parameters needed for the stage
         params = [mdot, Omega, U, Vx, psi[i], phi[i], Lambda[i], a1i, AR[i], ptc[i], rep]
         #Update the input conditions for the next stage
@@ -168,7 +208,7 @@ def stage(Po1, To1, del_ho, params, sizes, gas_props):
     else:
         find_angs = angles
     #Major sizes
-    t, g, r = sizes
+    t, g, r, dim_fs = sizes
     #Initial guess for the stage work output accounting for tip leakage
     work = del_ho#*0.95
     #Calculate angles
@@ -233,12 +273,17 @@ def stage(Po1, To1, del_ho, params, sizes, gas_props):
         dimensions = [t, g, r, H_st, H_ro, Cx_st, Cx_ro, w_st, w_ro]
         #Calculate the Reynolds numbers
         #Run the profile generator for SS length and section area
-        stator_dims = blade_dims(np.degrees(a1), np.degrees(a2), t, Cx_st)
-        rotor_dims = blade_dims(np.degrees(b2), np.degrees(b3), t, Cx_ro)
-        stator_A = stator_dims[0]
-        ss_st = stator_dims[1]
-        rotor_A = rotor_dims[0]
-        ss_ro = rotor_dims[1]
+        if dim_fs[0]:
+            ss_st = Cx_st*dim_fs[1](np.degrees(a1), np.degrees(a2))[0][0]
+            ss_ro = Cx_ro*dim_fs[1](np.degrees(b2), np.degrees(b3))[0][0]
+        else:
+            stator_dims = blade_dims(np.degrees(a1), np.degrees(a2), t, Cx_st)
+            rotor_dims = blade_dims(np.degrees(b2), np.degrees(b3), t, Cx_ro)
+            stator_A = stator_dims[0]
+            ss_st = stator_dims[1]
+            rotor_A = rotor_dims[0]
+            ss_ro = rotor_dims[1]
+        #Calculate Re based on SS length
         Res = [rho2*V2*ss_st/mu2, rho3*W3*ss_ro/mu3]
         #Find the losses across the stator and rotor
         loss_calc = losses(angs, vels, states, dimensions, Res)
@@ -265,6 +310,9 @@ def stage(Po1, To1, del_ho, params, sizes, gas_props):
     dimensions.append(ptc_st)
     dimensions.append(ptc_ro)
     #Stage mass and blades
+    if dim_fs[0]:
+        stator_A = Cx_st**2*dim_fs[2](np.degrees(a1), np.degrees(a2))[0][0]
+        rotor_A = Cx_ro**2*dim_fs[2](np.degrees(b2), np.degrees(b3))[0][0]
     blade_areas = [stator_A, rotor_A]
     mass_calc = stage_mass(To1, Po1, dimensions, Omega, blade_areas)
     mass = mass_calc[0]
@@ -574,7 +622,7 @@ def blade_mass(blade_sizes, rho_m, row_type, shroud=True):
             print('No row type specified')
         #Add to total
         m += m_shroud
-    
+
     return m, N, m_shroud
 
 def blade_stress(rm, H, omega, Cx, N, rho_m, A, m_shroud, sigma_y):
@@ -701,12 +749,12 @@ def blade_force(P1, P2, r, H1, H2):
 
 def elongation():
     """Return the elongation of components"""
-    
-    
+
+
 
 def start_up(vels, states, dimensions, Ri_rotor, Ro_stator):
     """Return thermal expansion of the stage at start up"""
-    
+
     V1, V2, W2, W3 = vels
     T1, T2, T3, rho1, rho2, rho3, mu2, mu3, mdot = states
     t, g, r, H_st, H_ro, Cx_st, Cx_ro, w_st, w_ro = dimensions
