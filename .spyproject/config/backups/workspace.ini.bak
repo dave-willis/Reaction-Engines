@@ -6,5 +6,5 @@ save_non_project_files = False
 
 [main]
 version = 0.2.0
-recent_files = ['Data Mining.py', 'Stage.py', 'Profile.py', 'Plots.py', 'test.py']
+recent_files = ['Data Mining.py', 'Turbine.py', 'Profile.py', 'Plots.py', 'test.py']
 

@@ -1,7 +1,7 @@
 """Calculations for evaluating turbine performance"""
 
 from Turbine import turbine, angles, spline, optimise
-#from GUI import b2b_variable, b2b_plot, annulus
+from GUI import b2b_variable, b2b_plot, annulus
 import numpy as np
 import time
 from multiprocessing import cpu_count

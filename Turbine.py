@@ -593,7 +593,7 @@ def blade_stress(rm, H, omega, Cx, N, rho_m, A, m_shroud, sigma_y):
 
     return P_blades
 
-def rotor_mass(rm, H, Cx, sigma_y, Po1, P_blades, omega, rho_m, nu):
+def rotor_mass(rm, H, Cx_ro, Cx_st, sigma_y, Po1, P_blades, omega, rho_m, nu):
     """Return the mass of the rotor ring"""
 
     #Find the outer radius of the hub
@@ -621,8 +621,8 @@ def rotor_mass(rm, H, Cx, sigma_y, Po1, P_blades, omega, rho_m, nu):
         Ri = Ri_rot
     else:
         Ri = Ri_P
-    #Calculate the mass of the rotor ring
-    m = rho_m*1.5*Cx*np.pi*(Ro**2-Ri**2)
+    #Calculate the mass of the rotor ring, which has to cover the rotor too
+    m = rho_m*1.5*(Cx_ro+Cx_st)*np.pi*(Ro**2-Ri**2)
 
     return m, Ri
 
@@ -680,7 +680,7 @@ def stage_mass(To1, Po1, dimensions, Omega, blade_areas):
     #Find the stress from the rotor blade roots
     P_blades = blade_stress(r, H_ro, Omega, Cx_ro, rotor_blade_N, rho_m, A_ro, m_shroud, sigma_m/SF_ro)
     #Find the mass of the rotor ring
-    rotor_ring_calc = rotor_mass(r, H_ro, Cx_ro, sigma_m/SF_ro, Po1, P_blades, Omega, rho_m, nu_m)
+    rotor_ring_calc = rotor_mass(r, H_ro, Cx_ro, Cx_st, sigma_m/SF_ro, Po1, P_blades, Omega, rho_m, nu_m)
     rotor_ring_mass = rotor_ring_calc[0]
     rotor_Ri = rotor_ring_calc[1]
     rotor_total_mass = rotor_ring_mass+rotor_blade_mass
@@ -698,6 +698,18 @@ def blade_force(P1, P2, r, H1, H2):
     Fx = 2*np.pi*r*(H2*P2-H1*P1+(H2-H1)*(P1+P2)/2)
 
     return Fx
+
+def elongation():
+    """Return the elongation of components"""
+    
+    
+
+def start_up(vels, states, dimensions, Ri_rotor, Ro_stator):
+    """Return thermal expansion of the stage at start up"""
+    
+    V1, V2, W2, W3 = vels
+    T1, T2, T3, rho1, rho2, rho3, mu2, mu3, mdot = states
+    t, g, r, H_st, H_ro, Cx_st, Cx_ro, w_st, w_ro = dimensions
 
 #############################
 ###INTERPOLATION FUNCTIONs###
