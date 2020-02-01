@@ -1,7 +1,0 @@
-Wout = 18*10^3; %kW
-stages = 16;
-rho = 0.179;
-cp=5.19;
-mdot= 15;%kg/s
-
-delH
