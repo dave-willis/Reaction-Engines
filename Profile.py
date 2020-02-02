@@ -308,7 +308,7 @@ def blade_dims(X1, X2, TE, Cx):
 
     return A_blade, ss_len
 
-def make_grid():
+def make_grid(t=0.0003, Cx=0.01):
     """Make .csv files with grids of normalised SS lengths and section areas"""
 
     #Define lists of variables
@@ -326,7 +326,7 @@ def make_grid():
                 x1 = -a1
                 x2 = -a2
             #Calculate SS length and blade area, with a representative TE/Cx
-            calc = blade_dims(x1, x2, 0.0003/0.01, 1.0)
+            calc = blade_dims(x1, x2, t/Cx, 1.0)
             xin.append(a1)
             xout.append(a2)
             sslen.append(calc[1])
