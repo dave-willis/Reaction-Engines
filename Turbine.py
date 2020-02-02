@@ -92,7 +92,7 @@ def turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc=-1
     Toi = To1
     a1i = np.radians(ain)
     loss = 0
-    loss_comp = [0, 0, 0, 0, 0] #Entropy rise from profile, TE, EW, secondary flow and tip
+    loss_comp = [0, 0, 0, 0] #Entropy rise from profile, TE, secondary flow and tip
     length = 0
     volume = 0
     mass = 0
@@ -166,9 +166,8 @@ def turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc=-1
         loss += stage_calc[8]
         loss_comp[0] += stage_calc[9][0] #Profile
         loss_comp[1] += stage_calc[9][1] #Trailing edge
-        loss_comp[2] += stage_calc[9][2] #Endwall
-        loss_comp[3] += stage_calc[9][3] #Secondary flow
-        loss_comp[4] += stage_calc[9][4] #Tip leakage
+        loss_comp[2] += stage_calc[9][2] #Secondary flow
+        loss_comp[3] += stage_calc[9][3] #Tip leakage
         length += stage_calc[6]
         volume += stage_calc[4]
         mass += stage_calc[3]
@@ -393,19 +392,15 @@ def losses(angs, vels, states, dimensions, Res):
     TE_st = TE(t, w_st, zeta_st, V2, T2)*(1-m_st)
     TE_ro = TE(t, w_ro, zeta_ro, W3, T3)*(1-m_ro)
     TE_loss = TE_st+TE_ro
-    #Endwall loss calculations account for varying chord and conditions
-    EW_st = 0#EW(rho1, V1, r, Cx_st, T1, mdot)+EW(rho2, V2, r, Cx_st, T2, mdot)
-    EW_ro = 0#EW(rho2, W2, r, Cx_ro, T2, mdot)+EW(rho3, W3, r, Cx_ro, T3, mdot)
-    EW_loss = EW_st+EW_ro
     #Secondary flow loss calculations
     secondary_st = secondary(a1, a2, Cx_st, H_st, V2, T2)
     secondary_ro = secondary(b2, b3, Cx_ro, H_ro, W3, T3)
     secondary_loss = secondary_st+secondary_ro
     #Add up entropy rises for the stator and rotor and find the overall loss
-    loss_st = profile_st+TE_st+EW_st+secondary_st+1.0*TC_st
-    loss_ro = profile_ro+TE_ro+EW_ro+secondary_ro+TC_ro
+    loss_st = profile_st+TE_st+secondary_st+1.0*TC_st
+    loss_ro = profile_ro+TE_ro+secondary_ro+TC_ro
     loss = loss_st+loss_ro
-    loss_comp = [profile_loss, TE_loss, EW_loss, secondary_loss, TC_loss] #Array of loss components
+    loss_comp = [profile_loss, TE_loss, secondary_loss, TC_loss] #Array of loss components
 
     return loss, loss_st, loss_ro, loss_comp, m_ls
 
@@ -439,17 +434,6 @@ def TE(t, w, zeta_profile, V, T):
     entropy = (zeta*0.5*V**2)/T
 
     return entropy
-
-def EW(rho, V, r, Cx, T, mdot):
-    """Return the endwall entropy rise for the stage"""
-
-    CD = 0.002 #Fix endwall dissipation coefficient
-    #Calculate total entropy rise, factor of 2 accounts for hub and casing
-    entropy = 2*rho*CD*(V**3)*2*np.pi*r*0.25*Cx/T
-    #Convert to specific entropy
-    entropy_sp = entropy/mdot
-
-    return entropy_sp
 
 def secondary(a1, a2, Cx, H, V, T):
     """Return the secondary flow entropy rise for the stage"""

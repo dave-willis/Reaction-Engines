@@ -163,8 +163,8 @@ if plot == 'mechs':
         
         profile.append(loss_norm*result[7][0])
         te.append(loss_norm*result[7][1])
-        secondary.append(loss_norm*result[7][3])
-        tc.append(loss_norm*result[7][4])
+        secondary.append(loss_norm*result[7][2])
+        tc.append(loss_norm*result[7][3])
     
     plt.figure()
     plt.plot(np.arange(0.2,1.0,0.05), profile, label='Profile', linewidth = 3)
@@ -214,8 +214,8 @@ if plot == 'mechs':
         
         profile.append(loss_norm*result[7][0])
         te.append(loss_norm*result[7][1])
-        secondary.append(loss_norm*result[7][3])
-        tc.append(loss_norm*result[7][4])
+        secondary.append(loss_norm*result[7][2])
+        tc.append(loss_norm*result[7][3])
         
     plt.figure()
     plt.xticks(range(5,26,5))
