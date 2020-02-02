@@ -17,6 +17,7 @@ import csv
 
 def turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc=-1, ain=0, gas_props=[5187, 1.6625]):
     """Return the turbine performance and sizing"""
+
     #If the inputs for phi, psi, Lambda, dho, AR, or ptc ints or floats, assume they're
     #constant through the turbine
     if isinstance(phi, (float, int)):
@@ -85,6 +86,10 @@ def turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc=-1
     cp, gamma = gas_props
     R = cp-cp/gamma
     gas_props = [cp, gamma, R]
+    #Rotor and stator materials
+    rotor_mat = 'inconel'
+    stator_mat = 'inconel'
+    materials = [stator_mat, rotor_mat]
     #Overall specific enthalpy drop
     del_ho = W/mdot
     #Initialise quantities
@@ -155,7 +160,7 @@ def turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc=-1
         #Update the input conditions for the next stage
         Poin = Poi
         Toin = Toi
-        stage_calc = stage(Poin, Toin, dho[i], params, sizes, gas_props)
+        stage_calc = stage(Poin, Toin, dho[i], params, sizes, gas_props, materials)
         #Store angles before updating a1
         angle.append([np.degrees(x) for x in find_angs(phi[i], psi[i], Lambda[i], a1i)])
         #Find the exit conditions from this stage to pass to the next
@@ -181,7 +186,9 @@ def turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc=-1
         Cx_ro = stage_calc[7][6]
         ptc_st = stage_calc[7][9]
         ptc_ro = stage_calc[7][10]
-        dims.append([r, H_st, H_ro, Cx_st, Cx_ro, ptc_st, ptc_ro])
+        Ro_st = stage_calc[7][11]
+        Ri_ro = stage_calc[7][12]
+        dims.append([r, H_st, H_ro, Cx_st, Cx_ro, ptc_st, ptc_ro, Ro_st, Ri_ro])
         Re += (stage_calc[13][0]+stage_calc[13][1])/(2*n)
         #Move to the next stage
         i += 1
@@ -194,7 +201,7 @@ def turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc=-1
 ###STAGE ROUTINE###
 ###################
 
-def stage(Po1, To1, del_ho, params, sizes, gas_props):
+def stage(Po1, To1, del_ho, params, sizes, gas_props, materials):
     """Return the stage losses and exit conditions"""
 
     #Gas properties
@@ -313,11 +320,19 @@ def stage(Po1, To1, del_ho, params, sizes, gas_props):
         stator_A = Cx_st**2*dim_fs[2](np.degrees(a1), np.degrees(a2))[0][0]
         rotor_A = Cx_ro**2*dim_fs[2](np.degrees(b2), np.degrees(b3))[0][0]
     blade_areas = [stator_A, rotor_A]
-    mass_calc = stage_mass(To1, Po1, dimensions, Omega, blade_areas)
+    mass_calc = stage_mass(To1, Po1, dimensions, Omega, blade_areas, materials)
     mass = mass_calc[0]
     n_blades = mass_calc[1]
+    Ro_st = mass_calc[2]
+    Ri_ro = mass_calc[3]
+    dimensions.append(Ro_st)
+    dimensions.append(Ri_ro)
     #Axial force on rotor
     Fx = blade_force(P2, P3, r, H2, H3)
+    #Thermal start up
+    vels.append(V3)
+    pressures = [P1, P2, P3]
+    start_up(vels, states, pressures, dimensions, materials)
 
     return To3, Po3, eff, mass, volume, work, length, dimensions, loss, loss_array, a3, n_blades, Fx, Res
 
@@ -460,6 +475,10 @@ def TC(g, H, a1, a2, V2, T):
 
     return entropy, m
 
+####################
+###GAS PROPERTIES###
+####################
+
 def viscosity(T):
     """Calculate viscosity of the gas"""
 
@@ -467,6 +486,22 @@ def viscosity(T):
     mu = (3.674*10**(-7))*(T**0.7)
 
     return mu
+
+def Prandtl(T, P):
+    """Calculate Prandtl number of the gas"""
+
+    #Just helium for now
+    Pr = 0.6728/(1+P*2.7*10**(-9))*(T/273)**(-(0.01-P*1.42*10**(-9)))
+
+    return Pr
+
+def conductivity(T):
+    """Calculate thermal conductivity of the gas"""
+
+    #Just helium for now
+    k = 0.14789*(T/273)**0.6958
+
+    return k
 
 ########################
 ###GEOMETRY FUNCTIONS###
@@ -551,7 +586,7 @@ def steel(T):
     else:
         c_m = 666+13002/(1011-T)
     #Thermal conductivity (Eurocode 3)
-    lambda_m = 54-3.33*(10**(-2)*(T-273))
+    k_m = 54-3.33*(10**(-2)*(T-273))
     #Yield stress (Wang, Liu & Kodur 2013)
     if T < 723:
         sigma_m = 500*10**6
@@ -560,7 +595,7 @@ def steel(T):
     #Young's modulus
     E_m = (1.02-0.035*np.exp((T-273)/280))*210*10**9
 
-    return nu_m, rho_m, strain, c_m, lambda_m, sigma_m, E_m
+    return nu_m, rho_m, strain, c_m, k_m, sigma_m, E_m
 
 def inconel(T):
     """Return the properties of Inconel 718 at temperature T"""
@@ -574,13 +609,13 @@ def inconel(T):
     #Specific heat capacity (Díaz-Álvarez et al. 2017)
     c_m = 400+0.15*np.exp((T-300)/90)
     #Thermal conductivity (Díaz-Álvarez et al. 2017)
-    lambda_m = (1/60)*T+5
+    k_m = (1/60)*T+5
     #Yield stress (Woo & Lee 2019)
     sigma_m = (1250-np.exp((T-273)/128))*10**6
     #Young's modulus (Thomas et el. 2006)
-    E_m = 166.2*(1+nu_m)*(1-0.5*(T-300)/1673)
+    E_m = 2*(1+nu_m)*(1-0.5*(T-300)/1673)*8.31*10**10
 
-    return nu_m, rho_m, strain, c_m, lambda_m, sigma_m, E_m
+    return nu_m, rho_m, strain[0], c_m, k_m, sigma_m, E_m
 
 def blade_mass(blade_sizes, rho_m, row_type, shroud=True):
     """Return the mass of the blades in the blade row"""
@@ -654,6 +689,7 @@ def rotor_mass(rm, H, Cx_ro, Cx_st, sigma_y, Po1, P_blades, omega, rho_m, nu):
     else:
         Ri = Ri_P
     #Calculate the mass of the rotor ring, which has to cover the rotor too
+    #This is a point for refinement
     m = rho_m*1.5*(Cx_ro+Cx_st)*np.pi*(Ro**2-Ri**2)
 
     return m, Ri
@@ -670,23 +706,22 @@ def stator_mass(rm, H, Cx_st, Cx_ro, sigma_y, Po1, rho_m):
 
     return m, Ro
 
-def stage_mass(To1, Po1, dimensions, Omega, blade_areas):
+def stage_mass(To1, Po1, dimensions, Omega, blade_areas, materials):
     """Return the total mass of the stage"""
 
     #Extract values from list
     t, g, r, H_st, H_ro, Cx_st, Cx_ro, w_st, w_ro, ptc_st, ptc_ro = dimensions
     A_st, A_ro = blade_areas
     #Set the materials for the rotor and stator
-    rotor_mat = 'inconel'
-    stator_mat = 'inconel'
+    stator_mat, rotor_mat = materials
     #Set safety factors
     SF_st = 1.0
     SF_ro = 1.0
     #Find the properties for the stator material:
     if stator_mat == 'inconel':
-        nu_m, rho_m, strain, c_m, lambda_m, sigma_m, E_m = inconel(To1)
+        nu_m, rho_m, strain, c_m, k_m, sigma_m, E_m = inconel(To1)
     if stator_mat == 'steel':
-        nu_m, rho_m, strain, c_m, lambda_m, sigma_m, E_m = steel(To1)
+        nu_m, rho_m, strain, c_m, k_m, sigma_m, E_m = steel(To1)
     #Find the mass and number of stator blades
     stator_blade_sizes = [r, ptc_st, H_st, Cx_st, A_st]
     stator_blade_calc = blade_mass(stator_blade_sizes, rho_m, 'stator')
@@ -700,9 +735,9 @@ def stage_mass(To1, Po1, dimensions, Omega, blade_areas):
     #Find the properties for the rotor material:
     if rotor_mat != stator_mat:
         if rotor_mat == 'inconel':
-            nu_m, rho_m, strain, c_m, lambda_m, sigma_m, E_m = inconel(To1)
+            nu_m, rho_m, strain, c_m, k_m, sigma_m, E_m = inconel(To1)
         if rotor_mat == 'steel':
-            nu_m, rho_m, strain, c_m, lambda_m, sigma_m, E_m = steel(To1)
+            nu_m, rho_m, strain, c_m, k_m, sigma_m, E_m = steel(To1)
     #Find the mass and number of rotor blades
     rotor_blade_sizes = [r, ptc_ro, H_ro, Cx_ro, A_ro]
     rotor_blade_calc = blade_mass(rotor_blade_sizes, rho_m, 'rotor')
@@ -719,8 +754,14 @@ def stage_mass(To1, Po1, dimensions, Omega, blade_areas):
     #Sum for total mass and blades
     stage_mass = rotor_total_mass+stator_total_mass
     stage_blades = rotor_blade_N+stator_blade_N
+    #Changes in radii from cold-static to cold-rotating
+    stator_Rs = [r+H_st/2, stator_Ro]
+    rotor_Rs = [rotor_Ri, r-H_ro/2]
+    dr_cold = elongation(materials, stator_Rs, rotor_Rs, m_shroud, A_ro, Omega, Po1, P_blades, 293)
+    #Changes in radii from cold-static to hot-rotating
+    dr_hot = elongation(materials, stator_Rs, rotor_Rs, m_shroud, A_ro, Omega, Po1, P_blades, To1)
 
-    return stage_mass, stage_blades, rotor_mass, stator_mass, stator_Ro, rotor_Ri
+    return stage_mass, stage_blades, stator_Ro, rotor_Ri
 
 
 def blade_force(P1, P2, r, H1, H2):
@@ -731,17 +772,90 @@ def blade_force(P1, P2, r, H1, H2):
 
     return Fx
 
-def elongation():
+def elongation(materials, stator_Rs, rotor_Rs, m_shroud, A_ro, omega, P_gas, P_blades, T):
     """Return the elongation of components"""
 
+    #Unpack variables
+    stator_mat, rotor_mat = materials
+    Ri_st, Ro_st = stator_Rs
+    Ri_ro, Ro_ro = rotor_Rs
+    #Get material properties
+    if stator_mat == 'inconel':
+        nu_st, rho_st, strain_st, c_st, k_st, sigma_st, E_st = inconel(T)
+    if stator_mat == 'steel':
+        nu_st, rho_st, strain_st, c_st, k_st, sigma_st, E_st = steel(T)
+    if rotor_mat == 'inconel':
+        nu_ro, rho_ro, strain_ro, c_ro, k_ro, sigma_ro, E_ro = inconel(T)
+    if rotor_mat == 'steel':
+        nu_ro, rho_ro, strain_ro, c_ro, k_ro, sigma_ro, E_ro = steel(T)
+    #Stator
+    #Increase in inner radius due to pressure
+    dr_P_st = P_gas*Ri_st/E_st*((Ro_st**2+Ri_st**2)/(Ro_st**2-Ri_st**2)+nu_st)
+    #Thermal expansion
+    dr_T_st = strain_st*Ri_st
+    #Total
+    dr_st = dr_P_st+dr_T_st
+    #Rotor
+    #Increase in outer radius due to rotation
+    dr_r_ro = rho_ro*omega**2*Ro_ro/(4*E_ro)*((1-nu_ro)*Ro_ro**2+(3+nu_ro)*Ri_ro**2)
+    #Increase in outer radius due to combined blade and gas pressure
+    dr_P_ro = (P_blades-P_gas)*Ro_ro/E_st*((Ro_ro**2+Ri_ro**2)/(Ro_ro**2-Ri_ro**2)-nu_ro)
+    #Increase in blade height from blade mass
+    dH_blade = rho_ro*Ri_st**2*omega**2/(2*E_ro)*(2*Ri_st/3-Ro_ro+Ro_ro**3/(3*Ri_st**2))
+    #Increase in blade height from shroud mass
+    dH_shroud = m_shroud*Ri_st*omega**2/(E_ro*A_ro)*(Ri_st-Ro_ro)
+    #Thermal expansion (outer radius being the tip of the blade)
+    dr_T_ro = strain_ro*Ri_st
+    #Total
+    dr_ro = dr_r_ro+dr_P_ro+dr_T_ro+dH_blade+dH_shroud
 
+    return dr_st, dr_ro
 
-def start_up(vels, states, dimensions, Ri_rotor, Ro_stator):
+def start_up(vels, states, pressures, dimensions, materials):
     """Return thermal expansion of the stage at start up"""
 
-    V1, V2, W2, W3 = vels
+    #Extract stage parameters
+    V1, V2, W2, W3, V3 = vels
     T1, T2, T3, rho1, rho2, rho3, mu2, mu3, mdot = states
-    t, g, r, H_st, H_ro, Cx_st, Cx_ro, w_st, w_ro = dimensions
+    P1, P2, P3 = pressures
+    t, g, r, H_st, H_ro, Cx_st, Cx_ro, w_st, w_ro, ptc_st, ptc_ro, Ro_st, Ri_ro = dimensions
+    stator_mat, rotor_mat = materials
+    #Biot number calculation
+    #First need a characteristic length s=V/A
+    s_st = (Ro_st**2-(r+H_st/2)**2)/(2*(r+H_st/2))
+    s_ro = ((r-H_ro/2)**2-Ri_ro**2)/(2*(r-H_ro/2))
+    #Find the heat transfer coefficient for a turbulent boundary layer
+    #Need average properties across the stage
+    mu1 = viscosity(T1)
+    Re_av_st = 1.5*Cx_st*(rho1*V1/mu1+rho2*V2/mu2)/2+1.5*Cx_ro*(rho2*V2/mu2+rho3*V3/mu3)/2
+    Re_av_ro = 1.5*Cx_st*(rho1*W3/mu1+rho2*W2/mu2)/2+1.5*Cx_ro*(rho2*W2/mu2+rho3*W3/mu3)/2
+    Pr_av = (Prandtl(T1, P1)+2*Prandtl(T2, P2)+Prandtl(T3, P3))/4
+    k_gas_av = (conductivity(T1)+2*conductivity(T2)+conductivity(T3))/4
+    #Calculate Nusselt numbers
+    Nu_st = 0.0296*Re_av_st**(4/5)*Pr_av**(1/3)
+    Nu_ro = 0.0296*Re_av_ro**(4/5)*Pr_av**(1/3)
+    #Calculate heat transfer coefficients
+    h_st = Nu_st*k_gas_av/(1.5*(Cx_st+Cx_ro))
+    h_ro = Nu_ro*k_gas_av/(1.5*(Cx_st+Cx_ro))
+    #Material properties
+    if stator_mat == 'inconel':
+        nu_st, rho_st, strain_st, c_st, k_st, sigma_st, E_st = inconel(293)
+    if stator_mat == 'steel':
+        nu_st, rho_st, strain_st, c_st, k_st, sigma_st, E_st = steel(293)
+    if rotor_mat == 'inconel':
+        nu_ro, rho_ro, strain_ro, c_ro, k_ro, sigma_ro, E_ro = inconel(293)
+    if rotor_mat == 'steel':
+        nu_ro, rho_ro, strain_ro, c_ro, k_ro, sigma_ro, E_ro = steel(293)
+    #Calculate the Biot numbers
+    Bi_st = h_st*s_st/k_st
+    Bi_ro = h_ro*s_ro/k_ro
+    #Calculate lumped mass time constants. To account for different
+    #conductivities, the time constant is scaled by the ratio of the rotor
+    #and stator materials conductivities
+    tau_st = (k_ro/k_st)*c_st*rho_st*s_st/h_st
+    tau_ro = (k_st/k_ro)*c_ro*rho_ro*s_ro/h_ro
+
+    return tau_st, tau_ro, Bi_st, Bi_ro
 
 #############################
 ###INTERPOLATION FUNCTIONs###
