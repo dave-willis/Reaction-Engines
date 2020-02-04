@@ -1,7 +1,6 @@
 """Calculations for evaluating turbine performance"""
 
 from Turbine import turbine, angles, spline, optimise
-from GUI import b2b_variable, b2b_plot, annulus
 import numpy as np
 import time
 from multiprocessing import cpu_count
@@ -16,8 +15,23 @@ mdot = 16
 Omega = 6782*2*np.pi/60
 t = 0.0003
 g = 0.0003
-
+gamma = 1.6625
 cp = 5187
+gas_props = [cp, gamma]
+del_ho = W/mdot
+To3 = To1-del_ho/cp
+
+#Properties for representative real turbine
+Po1 = 5*10**5
+To1 = 1200
+W = 8*10**6
+mdot = 30
+Omega = 800
+t = 0.001
+g = 0.0002
+gamma = 1.31
+cp = 1200
+gas_props = [cp, gamma]
 del_ho = W/mdot
 To3 = To1-del_ho/cp
 
@@ -37,31 +51,33 @@ n = 10
 ain = 0
 dho = [1.0, 1.106]
 
-#phi = [0.35, 0.35]
-#psi = [1.1, 1.1]
-#Lambda = [0.5, 0.5]
-#AR = [1.0, 1.0]
-#ptc = [1.3, 1.3]
-#n = 10
-#dho = [1.0, 1.0]
+phi = [0.5, 0.5]
+psi = [1.5, 1.5]
+Lambda = [0.5, 0.5]
+AR = [2.5, 2.5]
+ptc = [1.1, 1.1]
+n = 2
+dho = [1.0, 1.0]
 
-calcs = ''
+calcs = 'opt1'
 plot = ''
 save = ''
 start_time = time.time()
-result = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, ain)
+result = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, ain, gas_props)
 print('Time: {} s'.format(time.time()-start_time))
-#print('Angles [a1,a2,b2,a3,b3]=', np.round(result[10],2))
-#print('Chords [Cxst,Cxro]=', np.round([[i[3],i[4]] for i in result[5]],6))
+print('Angles [a1,a2,b2,a3,b3]=', np.round(result[10],2))
+print('Chords [Cxst,Cxro]=', np.round([[i[3],i[4]] for i in result[5]],6))
 print('Work = {} W'.format(result[1]))
 print('Efficiency = {}'.format(result[0]))
 print('Mass = {} kg'.format(result[2]))
 print('No. Blades = {}'.format(int(result[6])))
 print('Axial force on rotor = {} N'.format(result[13]))
 print('Average Re = {}'.format(result[14]))
+print('Cold-stat, cold-rot, warm-rot, hot-rot:', result[15])
 print(result[12])
 print('')
 if plot == 'yes':
+    from GUI import b2b_variable, b2b_plot, annulus
     b2b_variable(result)
 #    b2b_plot(result)
 
@@ -144,7 +160,7 @@ if calcs == 'opt1':
     
     print("Optimizer time: {}".format(time.time()-start))
     
-    turbine_data = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, ain)
+    turbine_data = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, ain, gas_props)
     
     print("Optimum efficiency = {}".format(turbine_data[0]))
     print("phi = {}".format(np.round(phi, 4)))

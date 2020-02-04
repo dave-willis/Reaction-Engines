@@ -11,6 +11,10 @@ from scipy.optimize import minimize
 from Profile import blade_dims
 import csv
 
+#Declare a few global options
+print_warnings = False #If True, will print warnings when material limits are exceeded
+fast_dimensions = True #If True, will interpolate from tables for blade dimensions
+
 ##########################
 ###MAIN TURBINE ROUTINE###
 ##########################
@@ -107,8 +111,10 @@ def turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc=-1
     n_blades = 0 #Total blades in the turbine
     Fx = 0 #Axial force on rotor
     Re = 0 #Average Reynolds number
+    expansion_lims = [] #Stator and rotor expansion, relative to static-cold, and thermal time
     #Select the function for calculating blade dimensions depending on speed wanted
-    fast_dimensions = False
+    global fast_dimensions
+    dim_fs = []
     if fast_dimensions:
         #Load the grid of normalised suction surface lengths and create the interpolation function
         xin = []
@@ -143,9 +149,7 @@ def turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc=-1
         #Make the interpolation functions
         ss_length = sciint.RectBivariateSpline(xin, xout, sslen, kx=1, ky=1)
         profile_area = sciint.RectBivariateSpline(xin, xout, areas, kx=1, ky=1)
-        dim_fs = [True, ss_length, profile_area]
-    else:
-        dim_fs = [False]
+        dim_fs = [ss_length, profile_area]
     #Increment through every stage
     i = 0
     while i < n:
@@ -156,7 +160,7 @@ def turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc=-1
         #Create size array, including the function for ss length
         sizes = [t, g, r, dim_fs]
         #Create array of parameters needed for the stage
-        params = [mdot, Omega, U, Vx, psi[i], phi[i], Lambda[i], a1i, AR[i], ptc[i], rep]
+        params = [mdot, Omega, U, Vx, psi[i], phi[i], Lambda[i], a1i, AR[i], ptc[i], rep, i+1, n]
         #Update the input conditions for the next stage
         Poin = Poi
         Toin = Toi
@@ -190,12 +194,13 @@ def turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc=-1
         Ri_ro = stage_calc[7][12]
         dims.append([r, H_st, H_ro, Cx_st, Cx_ro, ptc_st, ptc_ro, Ro_st, Ri_ro])
         Re += (stage_calc[13][0]+stage_calc[13][1])/(2*n)
+        expansion_lims.append(stage_calc[14])
         #Move to the next stage
         i += 1
     #Find the efficiency using the overall loss
     eff = del_ho/(del_ho+To1*loss)
     #More outputs can be added for whatever is needed
-    return eff, work*mdot, mass, volume, length, dims, n_blades, loss_comp, Poi, Toi, angle, inits, angle_warning, Fx, Re
+    return eff, work*mdot, mass, volume, length, dims, n_blades, loss_comp, Poi, Toi, angle, inits, angle_warning, Fx, Re, expansion_lims
 
 ###################
 ###STAGE ROUTINE###
@@ -204,10 +209,11 @@ def turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc=-1
 def stage(Po1, To1, del_ho, params, sizes, gas_props, materials):
     """Return the stage losses and exit conditions"""
 
+    global fast_dimensions, print_warnings
     #Gas properties
     cp, gamma, R = gas_props
     #Stage parameters
-    mdot, Omega, U, Vx, psi, phi, Lambda, a1, AR, ptc, rep = params
+    mdot, Omega, U, Vx, psi, phi, Lambda, a1, AR, ptc, rep, stage_n, n_stages = params
     #Set the angle function:
     if rep:
         find_angs = repeating
@@ -279,9 +285,9 @@ def stage(Po1, To1, del_ho, params, sizes, gas_props, materials):
         dimensions = [t, g, r, H_st, H_ro, Cx_st, Cx_ro, w_st, w_ro]
         #Calculate the Reynolds numbers
         #Run the profile generator for SS length and section area
-        if dim_fs[0]:
-            ss_st = Cx_st*dim_fs[1](np.degrees(a1), np.degrees(a2))[0][0]
-            ss_ro = Cx_ro*dim_fs[1](np.degrees(b2), np.degrees(b3))[0][0]
+        if fast_dimensions:
+            ss_st = Cx_st*dim_fs[0](np.degrees(a1), np.degrees(a2))[0][0]
+            ss_ro = Cx_ro*dim_fs[0](np.degrees(b2), np.degrees(b3))[0][0]
         else:
             stator_dims = blade_dims(np.degrees(a1), np.degrees(a2), t, Cx_st)
             rotor_dims = blade_dims(np.degrees(b2), np.degrees(b3), t, Cx_ro)
@@ -316,11 +322,11 @@ def stage(Po1, To1, del_ho, params, sizes, gas_props, materials):
     dimensions.append(ptc_st)
     dimensions.append(ptc_ro)
     #Stage mass and blades
-    if dim_fs[0]:
-        stator_A = Cx_st**2*dim_fs[2](np.degrees(a1), np.degrees(a2))[0][0]
-        rotor_A = Cx_ro**2*dim_fs[2](np.degrees(b2), np.degrees(b3))[0][0]
+    if fast_dimensions:
+        stator_A = Cx_st**2*dim_fs[1](np.degrees(a1), np.degrees(a2))[0][0]
+        rotor_A = Cx_ro**2*dim_fs[1](np.degrees(b2), np.degrees(b3))[0][0]
     blade_areas = [stator_A, rotor_A]
-    mass_calc = stage_mass(To1, Po1, dimensions, Omega, blade_areas, materials)
+    mass_calc = stage_mass(To1, Po1, dimensions, Omega, blade_areas, materials, stage_n)
     mass = mass_calc[0]
     n_blades = mass_calc[1]
     Ro_st = mass_calc[2]
@@ -332,9 +338,55 @@ def stage(Po1, To1, del_ho, params, sizes, gas_props, materials):
     #Thermal start up
     vels.append(V3)
     pressures = [P1, P2, P3]
-    start_up(vels, states, pressures, dimensions, materials)
+    thermal_calc = start_up(vels, states, pressures, dimensions, materials)
+    dg_c = mass_calc[4][0]-mass_calc[4][1]
+    dg_h = mass_calc[5][0]-mass_calc[5][1]
+    #The heating time constants can be used to get an estimate of a worst
+    #case scenrio where one component is fully heated and the other only
+    #heated to some fraction governed by the relative heating times
+    if thermal_calc[0] < thermal_calc[1]:
+        #Scenario where stator heats up faster
+        dr_st = mass_calc[5][0]
+        dr_ro = mass_calc[4][1]+thermal_calc[0]/thermal_calc[1]*(mass_calc[5][1]-mass_calc[4][1])
+        dg_warm = dr_st-dr_ro
+    if thermal_calc[0] >= thermal_calc[1]:
+        #Scenario where rotor heats up faster
+        dr_ro = mass_calc[5][1]
+        dr_st = mass_calc[4][0]+thermal_calc[1]/thermal_calc[0]*(mass_calc[5][0]-mass_calc[4][0])
+        dg_warm = dr_st-dr_ro
+    #Depending on the relative values of the hot and cold strains, the tip
+    #clearance when cold-static, cold-rotating warm-rotating hot-rotating will change
+    if dg_c >= 0 and dg_h >= 0:
+        cold_stat_g = 0.0
+        cold_rot_g = dg_c
+        warm_rot_g = dg_warm
+        hot_rot_g = dg_h
+    elif dg_c >= 0 and dg_h < 0:
+        cold_stat_g = abs(dg_h)
+        cold_rot_g = dg_c+abs(dg_h)
+        warm_rot_g = dg_warm+abs(dg_h)
+        hot_rot_g = 0.0
+    elif dg_h >= 0 and dg_c < 0:
+        cold_stat_g = abs(dg_c)
+        cold_rot_g = 0.0
+        warm_rot_g = dg_warm+abs(dg_c)
+        hot_rot_g = dg_h+abs(dg_c)
+    elif dg_c < 0 and dg_h < dg_c:
+        cold_stat_g = abs(dg_h)
+        cold_rot_g = dg_c-dg_h
+        warm_rot_g = dg_warm+abs(dg_h)
+        hot_rot_g = 0.0
+    elif dg_h < 0 and dg_c <= dg_h:
+        cold_stat_g = abs(dg_c)
+        cold_rot_g = 0.0
+        warm_rot_g = dg_warm+abs(dg_c)
+        hot_rot_g = dg_h-dg_c
+    if warm_rot_g < 0:
+        if print_warnings:
+            print('WARNING: STAGE {}: POSSIBLE ROTOR-STATOR CONTACT IN TRANSIENT HEATING'.format(stage_n))
+    expansion_lims = cold_stat_g, cold_rot_g, warm_rot_g, hot_rot_g
 
-    return To3, Po3, eff, mass, volume, work, length, dimensions, loss, loss_array, a3, n_blades, Fx, Res
+    return To3, Po3, eff, mass, volume, work, length, dimensions, loss, loss_array, a3, n_blades, Fx, Res, expansion_lims
 
 ######################
 ###VORTEX FUNCTIONS###
@@ -482,24 +534,30 @@ def TC(g, H, a1, a2, V2, T):
 def viscosity(T):
     """Calculate viscosity of the gas"""
 
-    #Just helium for now
+    #Helium
     mu = (3.674*10**(-7))*(T**0.7)
+    #Combustion gases with A1 jet fuel (FAR = 0.02)
+    mu = (1.31*10**(-5)+0.0059*T-1.71*10**(-6)*T**2)*10**(-5)
 
     return mu
 
 def Prandtl(T, P):
     """Calculate Prandtl number of the gas"""
 
-    #Just helium for now
+    #Helium
     Pr = 0.6728/(1+P*2.7*10**(-9))*(T/273)**(-(0.01-P*1.42*10**(-9)))
+    #Combustion gases with A1 jet fuel (FAR = 0.02)
+    Pr = 0.716-7.66*10**(-6)*T
 
     return Pr
 
 def conductivity(T):
     """Calculate thermal conductivity of the gas"""
 
-    #Just helium for now
+    #Helium
     k = 0.14789*(T/273)**0.6958
+    #Combustion gases with A1 jet fuel (FAR = 0.02)
+    k = (0.0059*T+0.94)*10**(-2)
 
     return k
 
@@ -628,23 +686,21 @@ def blade_mass(blade_sizes, rho_m, row_type, shroud=True):
     #Include shroud mass if specified
     m_shroud = 0
     if shroud:
-        #Shroud thickness of 3mm
-        t_shroud = 0.003
+        #Shroud thickness of 1.5mm
+        t_shroud = 0.0015
         #Calculation different on rotor or stator
         if row_type == 'rotor':
             #Single blade shroud mass
             m_shroud = rho_m*Cx*t_shroud*2*np.pi*(rm+H/2)/N
-        elif row_type == 'stator':
+        else:
             #Single blade shroud mass
             m_shroud = rho_m*Cx*t_shroud*2*np.pi*(rm-H/2)/N
-        else:
-            print('No row type specified')
         #Add to total
         m += m_shroud
 
     return m, N, m_shroud
 
-def blade_stress(rm, H, omega, Cx, N, rho_m, A, m_shroud, sigma_y):
+def blade_stress(rm, H, omega, Cx, N, rho_m, A, m_shroud, sigma_y, stage_n):
     """Return the blade root stress"""
 
     #Find the hub and rip radii
@@ -654,15 +710,18 @@ def blade_stress(rm, H, omega, Cx, N, rho_m, A, m_shroud, sigma_y):
     sigma_root = 0.5*rho_m*rt**2*omega**2*(1-(rh/rt)**2)+m_shroud*rt*omega**2/A
     #Warn if root stress exceeds yield
     if sigma_root > sigma_y:
-        print('WARNING: MATERIAL LIMITS EXCEEDED AT BLADE ROOT')
+        global print_warnings
+        if print_warnings:
+            print('WARNING: STAGE {}: MATERIAL LIMITS EXCEEDED AT BLADE ROOT'.format(stage_n))
     #Find the apparent pressure on the rotor ring from the blades
     P_blades = N*sigma_root*A/(2*np.pi*rh*1.5*Cx)
 
     return P_blades
 
-def rotor_mass(rm, H, Cx_ro, Cx_st, sigma_y, Po1, P_blades, omega, rho_m, nu):
+def rotor_mass(rm, H, Cx_ro, Cx_st, sigma_y, Po1, P_blades, omega, rho_m, nu, stage_n):
     """Return the mass of the rotor ring"""
 
+    global print_warnings
     #Find the outer radius of the hub
     Ro = rm-H/2
     #First find the rotating condition with no external pressure
@@ -671,16 +730,22 @@ def rotor_mass(rm, H, Cx_ro, Cx_st, sigma_y, Po1, P_blades, omega, rho_m, nu):
     c = 4*sigma_y*Ro**2-8*P_blades*Ro**2-rho_m*omega**2*(3+nu)*Ro**4
     #If the material is not strong enough then the equation breaks down. Set Ri to 0
     #and post a warning
-    if (-b-np.sqrt(b**2-4*a*c))/(2*a) < 0:
+    if b**2-4*a*c < 0:
         Ri_rot = 0
-        print('WARNING: MATERIAL LIMITS EXCEEDED IN ROTOR: BURST')
+        if print_warnings:
+            print('WARNING: STAGE {}: MATERIAL LIMITS EXCEEDED IN ROTOR: BURST'.format(stage_n))
+    elif (-b-np.sqrt(b**2-4*a*c))/(2*a) < 0:
+        Ri_rot = 0
+        if print_warnings:
+            print('WARNING: STAGE {}: MATERIAL LIMITS EXCEEDED IN ROTOR: BURST'.format(stage_n))
     else:
         Ri_rot = np.sqrt((-b-np.sqrt(b**2-4*a*c))/(2*a))
     #Find the static condition with only external pressure. Again check if material
     #limits are reached
     if Ro**2*(sigma_y-2*Po1) < 0:
         Ri_P = 0
-        print('WARNING: MATERIAL LIMITS EXCEEDED: PRESSURE')
+        if print_warnings:
+            print('WARNING: STAGE {}: MATERIAL LIMITS EXCEEDED: PRESSURE'.format(stage_n))
     else:
         Ri_P = np.sqrt(Ro**2*(sigma_y-2*Po1)/sigma_y)
     #Take whichever inner radius is smaller
@@ -694,21 +759,29 @@ def rotor_mass(rm, H, Cx_ro, Cx_st, sigma_y, Po1, P_blades, omega, rho_m, nu):
 
     return m, Ri
 
-def stator_mass(rm, H, Cx_st, Cx_ro, sigma_y, Po1, rho_m):
+def stator_mass(rm, H, Cx_st, Cx_ro, sigma_y, Po1, rho_m, stage_n):
     """Return the mass of the stator ring"""
 
+    global print_warnings
     #Find the inner radius of the case
     Ri = rm+H/2
     #Find the outer radius required to resist the pressure
-    Ro = np.sqrt(sigma_y*Ri**2/(sigma_y-2*Po1))
+    #Check for material failure first
+    if 2*Po1 > sigma_y:
+        if print_warnings:
+            print('WARNING: STAGE {}: MATERIAL LIMITS EXCEEDED: PRESSURE'.format(stage_n))
+        Ro = 1.5*Ri
+    else:
+        Ro = np.sqrt(sigma_y*Ri**2/(sigma_y-2*Po1))
     #Calculate the mass of the case, which has to cover the rotor too
     m = rho_m*1.5*(Cx_st+Cx_ro)*np.pi*(Ro**2-Ri**2)
 
     return m, Ro
 
-def stage_mass(To1, Po1, dimensions, Omega, blade_areas, materials):
+def stage_mass(To1, Po1, dimensions, Omega, blade_areas, materials, stage_n):
     """Return the total mass of the stage"""
 
+    global print_warnings
     #Extract values from list
     t, g, r, H_st, H_ro, Cx_st, Cx_ro, w_st, w_ro, ptc_st, ptc_ro = dimensions
     A_st, A_ro = blade_areas
@@ -722,13 +795,16 @@ def stage_mass(To1, Po1, dimensions, Omega, blade_areas, materials):
         nu_m, rho_m, strain, c_m, k_m, sigma_m, E_m = inconel(To1)
     if stator_mat == 'steel':
         nu_m, rho_m, strain, c_m, k_m, sigma_m, E_m = steel(To1)
+    if sigma_m <= 0 or E_m <= 0:
+        if print_warnings:
+            print('WARNING: STAGE {}: MATERIAL THERMAL LIMITS REACHED'.format(stage_n))
     #Find the mass and number of stator blades
     stator_blade_sizes = [r, ptc_st, H_st, Cx_st, A_st]
     stator_blade_calc = blade_mass(stator_blade_sizes, rho_m, 'stator')
     stator_blade_mass = stator_blade_calc[0]
     stator_blade_N = stator_blade_calc[1]
     #Find the mass of the stator case and sum
-    stator_case_calc = stator_mass(r, H_st, Cx_st, Cx_ro, sigma_m/SF_st, Po1, rho_m)
+    stator_case_calc = stator_mass(r, H_st, Cx_st, Cx_ro, sigma_m/SF_st, Po1, rho_m, stage_n)
     stator_case_mass = stator_case_calc[0]
     stator_Ro = stator_case_calc[1]
     stator_total_mass = stator_case_mass+stator_blade_mass
@@ -738,6 +814,9 @@ def stage_mass(To1, Po1, dimensions, Omega, blade_areas, materials):
             nu_m, rho_m, strain, c_m, k_m, sigma_m, E_m = inconel(To1)
         if rotor_mat == 'steel':
             nu_m, rho_m, strain, c_m, k_m, sigma_m, E_m = steel(To1)
+    if sigma_m <= 0 or E_m <= 0:
+        if print_warnings:
+            print('WARNING: STAGE {}: MATERIAL THERMAL LIMITS REACHED'.format(stage_n))
     #Find the mass and number of rotor blades
     rotor_blade_sizes = [r, ptc_ro, H_ro, Cx_ro, A_ro]
     rotor_blade_calc = blade_mass(rotor_blade_sizes, rho_m, 'rotor')
@@ -745,9 +824,9 @@ def stage_mass(To1, Po1, dimensions, Omega, blade_areas, materials):
     rotor_blade_N = rotor_blade_calc[1]
     m_shroud = rotor_blade_calc[2]
     #Find the stress from the rotor blade roots
-    P_blades = blade_stress(r, H_ro, Omega, Cx_ro, rotor_blade_N, rho_m, A_ro, m_shroud, sigma_m/SF_ro)
+    P_blades = blade_stress(r, H_ro, Omega, Cx_ro, rotor_blade_N, rho_m, A_ro, m_shroud, sigma_m/SF_ro, stage_n)
     #Find the mass of the rotor ring
-    rotor_ring_calc = rotor_mass(r, H_ro, Cx_ro, Cx_st, sigma_m/SF_ro, Po1, P_blades, Omega, rho_m, nu_m)
+    rotor_ring_calc = rotor_mass(r, H_ro, Cx_ro, Cx_st, sigma_m/SF_ro, Po1, P_blades, Omega, rho_m, nu_m, stage_n)
     rotor_ring_mass = rotor_ring_calc[0]
     rotor_Ri = rotor_ring_calc[1]
     rotor_total_mass = rotor_ring_mass+rotor_blade_mass
@@ -761,7 +840,7 @@ def stage_mass(To1, Po1, dimensions, Omega, blade_areas, materials):
     #Changes in radii from cold-static to hot-rotating
     dr_hot = elongation(materials, stator_Rs, rotor_Rs, m_shroud, A_ro, Omega, Po1, P_blades, To1)
 
-    return stage_mass, stage_blades, stator_Ro, rotor_Ri
+    return stage_mass, stage_blades, stator_Ro, rotor_Ri, dr_cold, dr_hot
 
 
 def blade_force(P1, P2, r, H1, H2):
@@ -812,7 +891,7 @@ def elongation(materials, stator_Rs, rotor_Rs, m_shroud, A_ro, omega, P_gas, P_b
     return dr_st, dr_ro
 
 def start_up(vels, states, pressures, dimensions, materials):
-    """Return thermal expansion of the stage at start up"""
+    """Return thermal behaviour of the stage at start up"""
 
     #Extract stage parameters
     V1, V2, W2, W3, V3 = vels
@@ -903,7 +982,7 @@ def optimise(start_turbine):
     phi_lim = (0.1, 1.0)
     psi_lim = (0.5, 2.5)
     Lam_lim = (0, 1)
-    AR_lim = (0, 2)
+    AR_lim = (0, 4)
     dh_lim = (1, 5)
 
     def turbine_calcs(args):

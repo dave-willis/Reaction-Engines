@@ -7,6 +7,23 @@ from matplotlib.widgets import Slider, Button, TextBox
 from Turbine import turbine, optimise
 from Profile import Profile
 
+#Setting global variables
+Po1 = 145*10**5
+To1 = 950
+mdot = 16
+Omega = 6782*2*np.pi/60
+W = 17*10**6
+t = 0.0003
+g = 0.0003
+phi = 0.4
+psi = 1
+Lambda = 0.5
+AR = 1
+dho = 1
+n = 10
+ptc = 1
+ain = 0
+new_turbine = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, ain)
 
 def b2b_data(turbine_data):
     """Return blade-to-blade profiles for the whole turbine"""
@@ -108,24 +125,6 @@ def b2b_plot(turbine_data):
     plt.ylabel('Tangential distance (mm)')
     plt.show()
 
-#Setting global variables
-Po1 = 145*10**5
-To1 = 950
-mdot = 16
-Omega = 6782*2*np.pi/60
-W = 17*10**6
-t = 0.0003
-g = 0.0003
-phi = 0.4
-psi = 1
-Lambda = 0.5
-AR = 1
-dho = 1
-n = 10
-ptc = 1
-ain = 0
-new_turbine = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, ain)
-
 def b2b_variable(turbine_data=new_turbine):
     """Plot blade-to-blade profiles with variable loadings"""
 
@@ -192,12 +191,9 @@ def b2b_variable(turbine_data=new_turbine):
     sdho2 = Slider(axdho2, '$\Delta h_{02}$', 1, 3, valinit=dho02)
     sAR1 = Slider(axAR1, '$AR_1$', 0.4, 2.0, valinit=AR01)
     sAR2 = Slider(axAR2, '$AR_2$', 0.4, 2.0, valinit=AR02)
-    
-    
     sptc1 = Slider(axptc1, '$p/C_{x1}$', 0.5, 1.5, valinit=ptc01)
     sptc2 = Slider(axptc2, '$p/C_{x2}$', 0.5, 1.5, valinit=ptc02)
-    #Can probably put p/Cx in a box as it wont vary 
-    
+    #Can probably put p/Cx in a box as it wont vary
     #Text box showing turbine efficiency
     effax = plt.axes([0.885, 0.65, 0.087, 0.04])
     eff = TextBox(effax, '', 'Efficiency: {}%'.format(np.round(100*new_turbine[0], 2)), color='1.0')
