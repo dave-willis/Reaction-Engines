@@ -30,14 +30,27 @@ n = 10
 ain = 0
 dho = [1.0, 1.1]
 
-#phi = [0.272, 0.293]
-#psi = [0.778, 0.901]
-#Lambda = [0.496, 0.507]
-#AR = [0.643, 0.796]
-#ptc = [1.1, 1.1]
-#n = 10
-#ain = 0
-#dho = [1.0, 1.106]
+#Properties for representative real turbine
+Po1 = 5*10**5
+To1 = 500
+W = 8*10**6
+mdot = 30
+Omega = 800
+t = 0.001
+g = 0.0002
+gamma = 1.31
+cp = 1200
+gas_props = [cp, gamma, 'A1']
+del_ho = W/mdot
+To3 = To1-del_ho/cp
+
+phi = [0.55, 0.65]
+psi = [0.9, 0.95]
+Lambda = [0.5, 0.5]
+AR = [2, 2]
+ptc = [1.1, 1.1]
+n = 6
+dho = [1.0, 1.0]
 
 plot = 'mechs'
 save = ''
@@ -189,8 +202,8 @@ if plot == 'mechs':
         
         profile.append(loss_norm*result[7][0])
         te.append(loss_norm*result[7][1])
-        secondary.append(loss_norm*result[7][3])
-        tc.append(loss_norm*result[7][4])
+        secondary.append(loss_norm*result[7][2])
+        tc.append(loss_norm*result[7][3])
         
     plt.figure()
     plt.plot(np.arange(0.5,2.5,0.05), profile, label='Profile', linewidth = 3)
@@ -240,8 +253,8 @@ if plot == 'mechs':
         
         profile.append(loss_norm*result[7][0])
         te.append(loss_norm*result[7][1])
-        secondary.append(loss_norm*result[7][3])
-        tc.append(loss_norm*result[7][4])
+        secondary.append(loss_norm*result[7][2])
+        tc.append(loss_norm*result[7][3])
         
     plt.figure()
     plt.plot(np.arange(0.4,2,0.05), profile, label='Profile', linewidth = 3)

@@ -134,7 +134,7 @@ def b2b_variable(turbine_data=new_turbine):
     #Save the start for resetting
     original_turbine = new_turbine
     #Extract new parameters
-    Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, ain = new_turbine[11]
+    Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, ain, gas = new_turbine[11]
     phi01 = phi[0]
     phi02 = phi[-1]
     psi01 = psi[0]
@@ -183,16 +183,16 @@ def b2b_variable(turbine_data=new_turbine):
     #Create sliders for each variable
     sphi1 = Slider(axphi1, '$\phi_1$', 0.1, 1.0, valinit=phi01)
     sphi2 = Slider(axphi2, '$\phi_2$', 0.1, 1.0, valinit=phi02)
-    spsi1 = Slider(axpsi1, '$\psi_1$', 0.5, 2.5, valinit=psi01)
-    spsi2 = Slider(axpsi2, '$\psi_2$', 0.5, 2.5, valinit=psi02)
+    spsi1 = Slider(axpsi1, '$\psi_1$', 0.2, 3.0, valinit=psi01)
+    spsi2 = Slider(axpsi2, '$\psi_2$', 0.2, 3.0, valinit=psi02)
     sLambda1 = Slider(axLambda1, '$\Lambda_1$', 0.01, 0.99, valinit=Lambda01)
     sLambda2 = Slider(axLambda2, '$\Lambda_2$', 0.01, 0.99, valinit=Lambda02)
-    sdho1 = Slider(axdho1, '$\Delta h_{01}$', 1, 3, valinit=dho01)
-    sdho2 = Slider(axdho2, '$\Delta h_{02}$', 1, 3, valinit=dho02)
-    sAR1 = Slider(axAR1, '$AR_1$', 0.4, 2.0, valinit=AR01)
-    sAR2 = Slider(axAR2, '$AR_2$', 0.4, 2.0, valinit=AR02)
-    sptc1 = Slider(axptc1, '$p/C_{x1}$', 0.5, 1.5, valinit=ptc01)
-    sptc2 = Slider(axptc2, '$p/C_{x2}$', 0.5, 1.5, valinit=ptc02)
+    sdho1 = Slider(axdho1, '$\Delta h_{01}$', 0.5, 3, valinit=dho01)
+    sdho2 = Slider(axdho2, '$\Delta h_{02}$', 0.5, 3, valinit=dho02)
+    sAR1 = Slider(axAR1, '$AR_1$', 0.2, 5.0, valinit=AR01)
+    sAR2 = Slider(axAR2, '$AR_2$', 0.2, 5.0, valinit=AR02)
+    sptc1 = Slider(axptc1, '$p/C_{x1}$', 0.3, 1.5, valinit=ptc01)
+    sptc2 = Slider(axptc2, '$p/C_{x2}$', 0.3, 1.5, valinit=ptc02)
     #Can probably put p/Cx in a box as it wont vary
     #Text box showing turbine efficiency
     effax = plt.axes([0.885, 0.65, 0.087, 0.04])
@@ -263,7 +263,7 @@ def b2b_variable(turbine_data=new_turbine):
         AR = [sAR1.val, sAR2.val]
         ptc = [sptc1.val, sptc2.val]
         #Recalculate turbine performance
-        new_turbine = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, ain)
+        new_turbine = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, ain, gas)
         #Get new profile data
         data = b2b_data(new_turbine)
         #Update plots
@@ -401,12 +401,14 @@ def b2b_variable(turbine_data=new_turbine):
     optax._button = opt_button
 
 def annulus(turbine_data):
-    """Plot annulus size through the turbine, return the plotting points"""
+    """Plot annulus size through the turbine"""
 
     #Extract values form turbine function output
     chords = [[i[3], i[4]] for i in turbine_data[5]]
     Hst = [i[1] for i in turbine_data[5]]
     rm = [i[0] for i in turbine_data[5]]
+    Ro = [i[7] for i in turbine_data[5]]
+    Ri = [i[8] for i in turbine_data[5]]
     n = turbine_data[11][12]
     #Initialise lists
     length = 0
@@ -421,11 +423,12 @@ def annulus(turbine_data):
         #Add the position to the array
         if i == 0:
             x.append(length)
+            r_hub.append(rm[i]-Hst[i]/2)
+            r_cas.append(rm[i]+Hst[i]/2)
         else:
             x.append(length+Cxst*0.25)
-        #Calculate the hub and case radii
-        r_hub.append(rm[i]-Hst[i]/2)
-        r_cas.append(rm[i]+Hst[i]/2)
+            r_hub.append(rm[i]-Hst[i]/2)
+            r_cas.append(rm[i]+Hst[i]/2)
         #Calculate the length along the turbine
         #First stage
         if n > 1 and i == 0:
@@ -462,21 +465,51 @@ def annulus(turbine_data):
         x3 = x[i]+1.25*Cxst+0.25*Cxro
         x4 = x[i]+1.25*Cxst+1.25*Cxro
         #Plot lines for the blades
-        plt.plot([x1, x1], [y1_hub, y1_cas], color='0.5', lw=0.5)
-        plt.plot([x2, x2], [y2_hub, y2_cas], color='0.5', lw=0.5)
-        plt.plot([x1, x2], [y1_hub, y2_cas], color='0.5', lw=0.5)
-        plt.plot([x1, x2], [y1_cas, y2_hub], color='0.5', lw=0.5)
-        plt.plot([x3, x3], [y3_hub, y3_cas], color='0.2', lw=0.5)
-        plt.plot([x4, x4], [y4_hub, y4_cas], color='0.2', lw=0.5)
-        plt.plot([x3, x4], [y3_hub, y4_cas], color='0.2', lw=0.5)
-        plt.plot([x3, x4], [y3_cas, y4_hub], color='0.2', lw=0.5)
+        plt.plot([x1, x1], [y1_hub, y1_cas], color='0.5', lw=0.8)
+        plt.plot([x2, x2], [y2_hub, y2_cas], color='0.5', lw=0.8)
+        plt.plot([x1, x2], [y1_hub, y2_cas], color='0.5', lw=0.8)
+        plt.plot([x1, x2], [y1_cas, y2_hub], color='0.5', lw=0.8)
+        plt.plot([x3, x3], [y3_hub, y3_cas], color='0.2', lw=0.8)
+        plt.plot([x4, x4], [y4_hub, y4_cas], color='0.2', lw=0.8)
+        plt.plot([x3, x4], [y3_hub, y4_cas], color='0.2', lw=0.8)
+        plt.plot([x3, x4], [y3_cas, y4_hub], color='0.2', lw=0.8)
+    #Duplicate some entries for square stages
+    r_hub = [val for val in r_hub for _ in (0, 1)]
+    r_cas = [val for val in r_cas for _ in (0, 1)]
+    x = [val for val in x for _ in (0, 1)]
+    del r_hub[0], r_hub[-1], r_cas[0], r_cas[-1], x[0], x[-1]
+    Ri = [val for val in Ri for _ in (0, 1)]
+    Ro = [val for val in Ro for _ in (0, 1)]
+    #Stages at constant thickness
+    for i in range(2, n):
+        dr_hub = r_hub[2*i-1]-r_hub[2*i-2]
+        Ri[2*i-1] = Ri[2*i-1]+dr_hub
+        if Ri[2*i-1] < 0:
+            Ri[2*i-1] = 0
+    for i in range(n+1):
+        dr_cas = r_cas[2*i-1]-r_cas[2*i-2]
+        Ro[2*i-1] = Ro[2*i-1]+dr_cas
+    #Plot lines separating stages
+    plt.plot([0, 0], [r_hub[0], 0], color='black', lw=1.2)
+    plt.plot([0, 0], [r_cas[0], Ro[0]], color='black', lw=1.2)
+    for i in range(1, n):
+        min_Ri = min(Ri[2*i-1], Ri[2*i])
+        max_Ro = max(Ro[2*i-1], Ro[2*i])
+        plt.plot([x[2*i-1], x[2*i-1]], [r_hub[2*i-1], min_Ri], color='black', lw=1.2)
+        plt.plot([x[2*i-1], x[2*i-1]], [r_cas[2*i-1], max_Ro], color='black', lw=1.2)
+    plt.plot([x[-1], x[-1]], [r_hub[-1], 0], color='black', lw=1.2)
+    plt.plot([x[-1], x[-1]], [r_cas[-1], Ro[-1]], color='black', lw=1.2)
     #Plot the results
-    plt.plot(x, r_hub, label='Hub', linewidth=0.5)
-    plt.plot(x, r_cas, label='Casing', linewidth=0.5)
+    plt.plot(x, r_hub, label='Hub', color=(0.0, 0.6, 0.9), linewidth=0.2)
+    plt.plot(x, r_cas, label='Casing', color=(0.9, 0.2, 0.0), linewidth=0.2)
+    plt.plot(x, Ri, color=(0.0, 0.6, 0.9), linewidth=0.2)
+    plt.plot(x, Ro, color=(0.9, 0.2, 0.0), linewidth=0.2)
+    plt.fill_between(x, Ri, r_hub, color=(0.0, 0.6, 0.9))
+    plt.fill_between(x, r_cas, Ro, color=(0.9, 0.2, 0.0))
     plt.xlabel('Length along turbine (m)')
     plt.ylabel('Radius (m)')
     plt.axis('equal')
-    ax.set_ybound(0, 1.05*np.amax(r_cas))
+    ax.set_ybound(0, 1.05*np.amax(Ro))
     ax.set_xbound(0, x[-1])
     #Zoom button
     zoomax = plt.axes([0.4, 0.9, 0.08, 0.04])
@@ -490,7 +523,7 @@ def annulus(turbine_data):
     def reset(val):
         """Reset view"""
         ax.axis('equal')
-        ax.set_ybound(0, 1.05*np.amax(r_cas))
+        ax.set_ybound(0, 1.05*np.amax(Ro))
         ax.set_xbound(0, x[-1])
     zoom_button.on_clicked(zoom)
     reset_button.on_clicked(reset)
