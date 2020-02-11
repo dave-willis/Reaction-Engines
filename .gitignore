@@ -4,5 +4,6 @@ GUI\ Rework/
 Old\ code/
 OO\ Rework/
 *.gcx
+*.log
 Throughflow/
 .spyproject/
