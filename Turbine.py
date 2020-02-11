@@ -324,7 +324,7 @@ def stage(Po1, To1, del_ho, params, sizes, gas_props, materials):
         stator_A = Cx_st**2*dim_fs[1](np.degrees(a1), np.degrees(a2))[0][0]
         rotor_A = Cx_ro**2*dim_fs[1](np.degrees(b2), np.degrees(b3))[0][0]
     blade_areas = [stator_A, rotor_A]
-    mass_calc = stage_mass(To1, Po1, dimensions, Omega, blade_areas, materials, stage_n, n_stages)
+    mass_calc = stage_mass(To1, Po1, Po3, dimensions, Omega, blade_areas, materials, stage_n, n_stages)
     mass = mass_calc[0]
     n_blades = mass_calc[1]
     Ro_st = mass_calc[2]
@@ -814,7 +814,7 @@ def stator_mass(rm, H_st, H_ro, Cx_st, Cx_ro, sigma_y, Po1, rho_m, stage_n):
 
     return m, Ro
 
-def stage_mass(To1, Po1, dimensions, Omega, blade_areas, materials, stage_n, n_stages):
+def stage_mass(To1, Po1, Po3, dimensions, Omega, blade_areas, materials, stage_n, n_stages):
     """Return the total mass of the stage"""
 
     global print_warnings
@@ -872,9 +872,9 @@ def stage_mass(To1, Po1, dimensions, Omega, blade_areas, materials, stage_n, n_s
     #Changes in radii from cold-static to cold-rotating
     stator_Rs = [r+H_st/2, stator_Ro]
     rotor_Rs = [rotor_Ri, r-H_ro/2]
-    dr_cold = elongation(materials, stator_Rs, rotor_Rs, m_shroud, A_ro, Omega, Po1, P_blades, 293)
+    dr_cold = elongation(materials, stator_Rs, rotor_Rs, m_shroud, A_ro, Omega, Po1, Po3, P_blades, 293)
     #Changes in radii from cold-static to hot-rotating
-    dr_hot = elongation(materials, stator_Rs, rotor_Rs, m_shroud, A_ro, Omega, Po1, P_blades, To1)
+    dr_hot = elongation(materials, stator_Rs, rotor_Rs, m_shroud, A_ro, Omega, Po1, Po3, P_blades, To1)
 
     return stage_mass, stage_blades, stator_Ro, rotor_Ri, dr_cold, dr_hot
 
@@ -887,7 +887,7 @@ def blade_force(P1, P2, r, H1, H2):
 
     return Fx
 
-def elongation(materials, stator_Rs, rotor_Rs, m_shroud, A_ro, omega, P_gas, P_blades, T):
+def elongation(materials, stator_Rs, rotor_Rs, m_shroud, A_ro, omega, Po1, Po3, P_blades, T):
     """Return the elongation of components"""
 
     #Unpack variables
@@ -905,7 +905,7 @@ def elongation(materials, stator_Rs, rotor_Rs, m_shroud, A_ro, omega, P_gas, P_b
         nu_ro, rho_ro, strain_ro, c_ro, k_ro, sigma_ro, E_ro = steel(T)
     #Stator
     #Increase in inner radius due to pressure
-    dr_P_st = P_gas*Ri_st/E_st*((Ro_st**2+Ri_st**2)/(Ro_st**2-Ri_st**2)+nu_st)
+    dr_P_st = Po1*Ri_st/E_st*((Ro_st**2+Ri_st**2)/(Ro_st**2-Ri_st**2)+nu_st)
     #Thermal expansion
     dr_T_st = strain_st*Ri_st
     #Total
@@ -914,7 +914,7 @@ def elongation(materials, stator_Rs, rotor_Rs, m_shroud, A_ro, omega, P_gas, P_b
     #Increase in outer radius due to rotation
     dr_r_ro = rho_ro*omega**2*Ro_ro/(4*E_ro)*((1-nu_ro)*Ro_ro**2+(3+nu_ro)*Ri_ro**2)
     #Increase in outer radius due to combined blade and gas pressure
-    dr_P_ro = (P_blades-P_gas)*Ro_ro/E_st*((Ro_ro**2+Ri_ro**2)/(Ro_ro**2-Ri_ro**2)-nu_ro)
+    dr_P_ro = (P_blades+Po3-Po1)*Ro_ro/E_st*((Ro_ro**2+3*Ri_ro**2)/(Ro_ro**2-Ri_ro**2)-nu_ro)
     #Increase in blade height from blade mass
     dH_blade = rho_ro*Ri_st**2*omega**2/(2*E_ro)*(2*Ri_st/3-Ro_ro+Ro_ro**3/(3*Ri_st**2))
     #Increase in blade height from shroud mass
