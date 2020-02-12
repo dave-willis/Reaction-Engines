@@ -180,18 +180,9 @@ def turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc=-1
         volume += stage_calc[4]
         mass += stage_calc[3]
         work += stage_calc[5]
-        r = stage_calc[7][2]
         n_blades += stage_calc[11]
         Fx += stage_calc[12]
-        H_st = stage_calc[7][3]
-        H_ro = stage_calc[7][4]
-        Cx_st = stage_calc[7][5]
-        Cx_ro = stage_calc[7][6]
-        ptc_st = stage_calc[7][9]
-        ptc_ro = stage_calc[7][10]
-        Ro_st = stage_calc[7][11]
-        Ri_ro = stage_calc[7][12]
-        dims.append([r, H_st, H_ro, Cx_st, Cx_ro, ptc_st, ptc_ro, Ro_st, Ri_ro])
+        dims.append(stage_calc[7])
         Re += (stage_calc[13][0]+stage_calc[13][1])/(2*n)
         expansion_lims.append(stage_calc[14])
         #Move to the next stage
@@ -383,6 +374,8 @@ def stage(Po1, To1, del_ho, params, sizes, gas_props, materials):
         if print_warnings:
             print('WARNING: STAGE {}: POSSIBLE ROTOR-STATOR CONTACT IN TRANSIENT HEATING'.format(stage_n))
     expansion_lims = cold_stat_g, cold_rot_g, warm_rot_g, hot_rot_g
+    dimensions = [r, H1, H2, H3, Cx_st, Cx_ro, ptc_st, ptc_ro, Ro_st, Ri_ro]
+    print(n_blades)
 
     return To3, Po3, eff, mass, volume, work, length, dimensions, loss, loss_array, a3, n_blades, Fx, Res, expansion_lims
 

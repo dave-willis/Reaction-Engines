@@ -30,8 +30,8 @@ def b2b_data(turbine_data):
 
     #Extract values from the turbine function output
     angs = [[i[0], i[1], i[2], i[4]] for i in turbine_data[10]]
-    chords = [[i[3], i[4]] for i in turbine_data[5]]
-    ptcs = [[i[5], i[6]] for i in turbine_data[5]]
+    chords = [[i[4], i[5]] for i in turbine_data[5]]
+    ptcs = [[i[6], i[7]] for i in turbine_data[5]]
     tTE = turbine_data[11][5]
     n = turbine_data[11][12]
     #Number of points per blade plot
@@ -151,9 +151,9 @@ def b2b_variable(turbine_data=new_turbine):
     data = b2b_data(new_turbine)
     scale = data[8]
     max_stages = data[9]
-    Cxst1 = new_turbine[5][0][3]
-    Cxron = new_turbine[5][-1][4]
-    Cxmax = np.amax([i[3] for i in new_turbine[5]])
+    Cxst1 = new_turbine[5][0][4]
+    Cxron = new_turbine[5][-1][5]
+    Cxmax = np.amax([i[4] for i in new_turbine[5]])
     #Initialise plots
     fig, ax = plt.subplots()
     plt.subplots_adjust(left=0.06, right=0.86, top=0.85, bottom=0.2)
@@ -297,9 +297,9 @@ def b2b_variable(turbine_data=new_turbine):
             angle_max.color = 'g'
             angle_max.hovercolor = 'g'
         #Update the figure
-        Cxst1 = new_turbine[5][0][3]
-        Cxron = new_turbine[5][-1][4]
-        Cxmax = np.amax([i[3] for i in new_turbine[5]])
+        Cxst1 = new_turbine[5][0][4]
+        Cxron = new_turbine[5][-1][5]
+        Cxmax = np.amax([i[4] for i in new_turbine[5]])
         ax.set_xbound(np.amin(data[0][:4*n])-scale*Cxst1, np.amax(data[0][:4*n])+scale*Cxron)
         ax.set_ybound(np.amin(data[1][:4*n])-scale*Cxmax, np.amax(data[1][:4*n])+scale*Cxmax)
     #When any of the sliders are changed, update the figure
@@ -405,10 +405,10 @@ def annulus(turbine_data):
 
     #Extract values form turbine function output
     chords = [[i[3], i[4]] for i in turbine_data[5]]
-    Hst = [i[1] for i in turbine_data[5]]
+    Hst = [(i[1]+i[2])/2 for i in turbine_data[5]]
     rm = [i[0] for i in turbine_data[5]]
-    Ro = [i[7] for i in turbine_data[5]]
-    Ri = [i[8] for i in turbine_data[5]]
+    Ro = [i[8] for i in turbine_data[5]]
+    Ri = [i[9] for i in turbine_data[5]]
     n = turbine_data[11][12]
     #Initialise lists
     length = 0

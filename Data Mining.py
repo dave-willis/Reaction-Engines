@@ -63,17 +63,50 @@ save = ''
 start_time = time.time()
 result = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, ain, gas)
 print('Time: {} s'.format(time.time()-start_time))
-print('Angles [a1,a2,b2,a3,b3]=', np.round(result[10],2))
-print('Chords [Cxst,Cxro]=', np.round([[i[8],i[4]] for i in result[5]],6))
+# print('Angles [a1,a2,b2,a3,b3]=', np.round(result[10],2))
+# print('Chords [Cxst,Cxro]=', np.round([[i[4],i[5]] for i in result[5]],6))
 print('Work = {} W'.format(result[1]))
 print('Efficiency = {}'.format(result[0]))
 print('Mass = {} kg'.format(result[2]))
 print('No. Blades = {}'.format(int(result[6])))
-print('Axial force on rotor = {} N'.format(result[13]))
-print('Average Re = {}'.format(result[14]))
-print('Cold-stat, cold-rot, warm-rot, hot-rot:', result[15])
-print(result[12])
+# print('Axial force on rotor = {} N'.format(result[13]))
+# print('Average Re = {}'.format(result[14]))
+# print('Cold-stat, cold-rot, warm-rot, hot-rot:', result[15])
+# print(result[12])
 print('')
+stages_rm = [i[0] for i in result[5]]
+stages_H1 = [i[1] for i in result[5]]
+stages_H2 = [i[2] for i in result[5]]
+stages_H3 = [i[3] for i in result[5]]
+stages_Cst = [i[4] for i in result[5]]
+stages_Cro = [i[5] for i in result[5]]
+hub_y = [stages_rm[0]-stages_H1[0]/2]
+hub_x = [0]
+case_y = [stages_rm[0]+stages_H1[0]/2]
+case_x = [0]
+z = 0
+n = 1
+for i in range(n):
+    hub_y.append(stages_rm[i]-stages_H1[i]/2)
+    hub_x.append(z+0.25*stages_Cst[i])
+    hub_y.append(stages_rm[i]-stages_H2[i]/2)
+    hub_x.append(z+1.5*stages_Cst[i])
+    hub_y.append(stages_rm[i]-stages_H3[i]/2)
+    hub_x.append(z+1.5*stages_Cst[i]+1.25*stages_Cro[i])
+    case_y.append(stages_rm[i]+stages_H1[i]/2)
+    case_x.append(z+0.25*stages_Cst[i])
+    case_y.append(stages_rm[i]+stages_H2[i]/2)
+    case_x.append(z+1.5*stages_Cst[i])
+    case_y.append(stages_rm[i]+stages_H3[i]/2)
+    case_x.append(z+1.5*stages_Cst[i]+1.25*stages_Cro[i])
+    
+    z += 1.5*stages_Cst[i]+1.5*stages_Cro[i]
+    
+hub_y.append(stages_rm[n-1]-stages_H3[n-1]/2)
+hub_x.append(z)
+case_y.append(stages_rm[n-1]+stages_H3[n-1]/2)
+case_x.append(z)
+
 if plot == 'yes':
     from GUI import b2b_variable, b2b_plot, annulus
     # b2b_variable(result)
