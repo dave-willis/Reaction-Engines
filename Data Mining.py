@@ -1,6 +1,6 @@
 """Calculations for evaluating turbine performance"""
 
-from Turbine import turbine, angles, spline, optimise
+from Turbine import turbine, angles, spline, optimise, free_vortex
 import numpy as np
 import time
 from multiprocessing import cpu_count
@@ -58,8 +58,9 @@ ptc_lim = (0.7, 1.5)
 dh_lim = (1, 5)
 
 calcs = ''
-plot = ''
+plot = 'yes'
 save = ''
+save_geom = False
 start_time = time.time()
 result = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, ain, gas)
 print('Time: {} s'.format(time.time()-start_time))
@@ -74,44 +75,80 @@ print('No. Blades = {}'.format(int(result[6])))
 # print('Cold-stat, cold-rot, warm-rot, hot-rot:', result[15])
 # print(result[12])
 print('')
-stages_rm = [i[0] for i in result[5]]
-stages_H1 = [i[1] for i in result[5]]
-stages_H2 = [i[2] for i in result[5]]
-stages_H3 = [i[3] for i in result[5]]
-stages_Cst = [i[4] for i in result[5]]
-stages_Cro = [i[5] for i in result[5]]
-hub_y = [stages_rm[0]-stages_H1[0]/2]
-hub_x = [0]
-case_y = [stages_rm[0]+stages_H1[0]/2]
-case_x = [0]
-z = 0
-n = 1
-for i in range(n):
-    hub_y.append(stages_rm[i]-stages_H1[i]/2)
-    hub_x.append(z+0.25*stages_Cst[i])
-    hub_y.append(stages_rm[i]-stages_H2[i]/2)
-    hub_x.append(z+1.5*stages_Cst[i])
-    hub_y.append(stages_rm[i]-stages_H3[i]/2)
-    hub_x.append(z+1.5*stages_Cst[i]+1.25*stages_Cro[i])
-    case_y.append(stages_rm[i]+stages_H1[i]/2)
-    case_x.append(z+0.25*stages_Cst[i])
-    case_y.append(stages_rm[i]+stages_H2[i]/2)
-    case_x.append(z+1.5*stages_Cst[i])
-    case_y.append(stages_rm[i]+stages_H3[i]/2)
-    case_x.append(z+1.5*stages_Cst[i]+1.25*stages_Cro[i])
+if save_geom:
+    #Save geometry arrays for Autogrid
+    stages_rm = [i[0] for i in result[5]]
+    stages_H1 = [i[1] for i in result[5]]
+    stages_H2 = [i[2] for i in result[5]]
+    stages_H3 = [i[3] for i in result[5]]
+    stages_Cst = [i[4] for i in result[5]]
+    stages_Cro = [i[5] for i in result[5]]
+    stages_phi = result[16][0]
+    hub_r = [stages_rm[0]-stages_H1[0]/2]
+    hub_x = [0]
+    case_r = [stages_rm[0]+stages_H1[0]/2]
+    case_x = [0]
+    stages_Cx = []
+    stages_X1_hub = []
+    stages_X2_hub = []
+    stages_X1_case = []
+    stages_X2_case = []
+    stages_X1 = []
+    stages_X2 = []
+    stages_blades = []
+    z = 0
+    n = 1
+    for i in range(n):
+        
+        a1s, a2s, b2s, b3s = free_vortex(result[10][i], [stages_rm[i], stages_H1[i], stages_H2[i]], stages_phi[i])
+        
+        hub_r.append(stages_rm[i]-stages_H2[i]/2)
+        hub_x.append(z+1.5*stages_Cst[i])
+        hub_r.append(stages_rm[i]-stages_H3[i]/2)
+        hub_x.append(z+1.5*stages_Cst[i]+1.5*stages_Cro[i])
+        case_r.append(stages_rm[i]+stages_H2[i]/2)
+        case_x.append(z+1.5*stages_Cst[i])
+        case_r.append(stages_rm[i]+stages_H3[i]/2)
+        case_x.append(z+1.5*stages_Cst[i]+1.5*stages_Cro[i])
+        stages_Cx.append(stages_Cst[i])
+        stages_Cx.append(stages_Cro[i])
+        stages_X1.append(a1s[0])
+        stages_X1.append(a1s[1])
+        stages_X1.append(a1s[2])
+        stages_X2.append(a2s[0])
+        stages_X2.append(a2s[1])
+        stages_X2.append(a2s[2])
+        stages_X1.append(b2s[0])
+        stages_X1.append(b2s[1])
+        stages_X1.append(b2s[2])
+        stages_X2.append(b3s[0])
+        stages_X2.append(b3s[1])
+        stages_X2.append(b3s[2])
+        stages_blades.append(result[5][i][10])
+        stages_blades.append(result[5][i][11])
+        
+        z += 1.5*(stages_Cst[i]+stages_Cro[i])
+
+    import csv
     
-    z += 1.5*stages_Cst[i]+1.5*stages_Cro[i]
-    
-hub_y.append(stages_rm[n-1]-stages_H3[n-1]/2)
-hub_x.append(z)
-case_y.append(stages_rm[n-1]+stages_H3[n-1]/2)
-case_x.append(z)
+    with open('Turbine_geom.csv', mode='w') as turbine_geom:
+        turbine_writer = csv.writer(turbine_geom, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+
+        turbine_writer.writerow(stages_blades)
+        turbine_writer.writerow(stages_X1)
+        turbine_writer.writerow(stages_X2)
+        turbine_writer.writerow(stages_Cx)
+        turbine_writer.writerow(hub_x)
+        turbine_writer.writerow(hub_r)
+        turbine_writer.writerow(case_x)
+        turbine_writer.writerow(case_r)
+
 
 if plot == 'yes':
     from GUI import b2b_variable, b2b_plot, annulus
-    # b2b_variable(result)
+    b2b_variable(result)
     # b2b_plot(result)
-    annulus(result)
+    # annulus(result)
 
 if calcs == 'brute force':
     start_time = time.time()

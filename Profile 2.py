@@ -186,7 +186,7 @@ def F_Make(Xi1, Xi2, controls_cam, controls_thk_x, controls_thk_y, Tte, Oval_fra
     return(X_L, Z_L, X_U, Z_U)
 
 
-def Profile(X1, X2, TKTE, Cx, points=500, TE_points=200):
+def Profile(X1, X2, TKTE, Cx, points=500):
     """Function based on profgen.f (JDD) - GENERATES SIMPLE BLADE PROFILES"""
 
     ### THIS FUNCTION SHOULD BE REPLACED AT SOME POINT TO USE A BETTER BLADE SECTION GENERATOR
@@ -198,9 +198,10 @@ def Profile(X1, X2, TKTE, Cx, points=500, TE_points=200):
 
     controls_cam = [-0.0, -0.5, -0.8]
     Rle = 0.05
-    Tte = TKTE/Cx
+    Tte = TKTE
     Beta_te = 4.0
     Oval_frac = 0.3
+    #controls_cam = [0,0.2,0.0]
     controls_thk_x = [0.0, 0.5, 1.0]
     controls_thk_y = [(2.*Rle)**0.5*(1.-Oval_frac), 0.25, np.tan(np.radians(Beta_te))+Tte/2.]
 
@@ -250,39 +251,41 @@ def Profile(X1, X2, TKTE, Cx, points=500, TE_points=200):
     YLIN = (YLIN-yoffset)/XScale	### center on peak thickness - DEFAULTS STACKING TO PEAK THICKNESS
     YIN = (YIN - yoffset)/XScale ### center on peak thickness - DEFAULTS STACKING TO PEAK THICKNESS
 
-    UTE_m = (XUIN[-2]-XUIN[-1])/(YUIN[-1]-YUIN[-2])
-    LTE_m = (XLIN[-2]-XLIN[-1])/(YLIN[-1]-YLIN[-2])
-    TE_circ_cx = (YUIN[-1]-YLIN[-1]+LTE_m*XLIN[-1]-UTE_m*XUIN[-1])/(LTE_m-UTE_m)
-    TE_circ_cy = YUIN[-1]+UTE_m*(TE_circ_cx-XUIN[-1])
-    TE_circ_r = ((abs(XLIN[-1]-TE_circ_cx))**2+(abs(YLIN[-1]-TE_circ_cy))**2)**0.5
-    U_theta = np.arccos((XUIN[-1]-TE_circ_cx)/TE_circ_r)
-    L_theta = -np.arccos((XLIN[-1]-TE_circ_cx)/TE_circ_r)
-    
-    TE_points = 200
-    TE_theta = np.linspace(U_theta, L_theta, TE_points)
-    TEx = TE_circ_cx - TE_circ_r*np.cos(np.pi-TE_theta)
-    TEy = TE_circ_cy + TE_circ_r*np.sin(np.pi-TE_theta)
+    TE_circ_r = 0.5*((abs(XLIN[-1]-XUIN[-1]))**2+(abs(YLIN[-1]-YUIN[-1]))**2)**0.5
+    TE_circ_cx = 0.5*(XLIN[-1]+XUIN[-1])
+    TE_circ_cy = 0.5*(YLIN[-1]+YUIN[-1])
+    TEcx = np.linspace(XLIN[-1], TE_circ_cx+TE_circ_r-TE_circ_r/(points*100), points)
+    TEcx2 = np.linspace(XUIN[-1], TE_circ_cx+TE_circ_r-TE_circ_r/(points*100), points)
+    TEcy = np.asarray([TE_circ_cy-(TE_circ_r**2-(i-TE_circ_cx)**2)**0.5 for i in TEcx])
+    TEcy2 = np.asarray([TE_circ_cy+(TE_circ_r**2-(i-TE_circ_cx)**2)**0.5 for i in TEcx2])
 
-    maxes = np.array([np.amax(XIN), np.amax(XUIN), np.amax(XLIN), np.amax(TEx)])
+    UTE_m = (XUIN(-2)-XUIN(-1))/(YUIN(-1)-YUIN(-2))
+    LTE_m = (XLIN(-2)-XLIN(-1))/(YLIN(-1)-YLIN(-2))
+    TE_circ_cx = (YUIN(-1)-YLIN(-1)+LTE_m*XLIN(-1)-UTE_m*XUIN(-1))/(LTE_m-UTE_m)
+    TE_circ_cy = YUIN(-1)+UTE_m*(TE_circ_cx-XUIN(-1))
+    TE_circ_r = ((abs(XLIN(-1)-TE_circ_cx))^2+(abs(YLIN(-1)-TE_circ_cy))^2)**0.5
+    U_theta = np.arccos((XUIN(-1)-TE_circ_cx)/TE_circ_r)
+    L_theta = -np.arccos((XLIN(-1)-TE_circ_cx)/TE_circ_r)
+    
+    TE_n_points = 100
+    TE_theta = linspace(U_theta, L_theta, TE_n_points)
+    TEx = TE_circ_cx - TE_circ_r*cos(pi-TE_theta)
+    TEy = TE_circ_cy + TE_circ_r*sin(pi-TE_theta)
+
+    maxes = np.array([np.amax(XIN), np.amax(XUIN), np.amax(XLIN), np.amax(TEcx), np.amax(TEcx2)])
     mins = np.array([np.amin(XIN), np.amin(XUIN), np.amin(XLIN)])
     cx = Cx*(np.amax(maxes)-np.amin(mins))
 
-    XU = [cx*i for i in XUIN]
-    YU = [cx*i for i in YUIN]
-    XL = [cx*i for i in XLIN]
-    YL = [cx*i for i in YLIN]
-    TEx = [cx*i for i in TEx]
-    TEy = [cx*i for i in TEy]
-    
-    te_index = int(points+TE_points/2)
-    X = XU + TEx + XL[::-1]
-    Y = YU + TEy + YL[::-1]
-    XU = X[:te_index]
-    YU = Y[:te_index]
-    XL = X[te_index:]
-    YL = Y[te_index:]
+    XP = [cx*i for i in XUIN]
+    YP = [cx*i for i in YUIN]
+    XS = [cx*i for i in XLIN]
+    YS = [cx*i for i in YLIN]
+    TEcx = [cx*i for i in TEcx]
+    TEcy = [cx*i for i in TEcy]
+    TEcx2 = [cx*i for i in TEcx2]
+    TEcy2 = [cx*i for i in TEcy2]
 
-    return(XU, YU, XL, YL, X, Y)
+    return(XP, YP, XS, YS, TEcx, TEcy, TEcx2, TEcy2)
 
 ################################
 ###SS LENGTH AND SECTION AREA###
@@ -299,7 +302,7 @@ def blade_dims(X1, X2, TE, Cx):
     #Set number of points on the surfaces
     n_points = 40
     #Apply profile function to get the surface points
-    surface = Profile(X1, X2, TE, Cx, points=n_points, TE_points=n_points)
+    surface = Profile(X1, X2, TE/Cx, Cx, points=n_points)
     #Extract the two surfaces and offset them upwards so all y values are positive
     min_y = np.amin(np.concatenate((surface[1], surface[3])))
     XP = surface[0]

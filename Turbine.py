@@ -73,6 +73,8 @@ def turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc=-1
     #If n=1 then scale the first vale of dho accordingly
     if n == 1:
         dho = [W/mdot, 0]
+    #List of the stage parameters
+    stage_params = [phi, psi, Lambda, dho, AR, ptc]
     #Set hard limit of 73º on exit angles. Don't account for increase in psi
     #due to leakage here, can remove designs if they're unacceptable later.
     ang_1 = 0 #Initialise the inlet angle
@@ -180,17 +182,17 @@ def turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc=-1
         volume += stage_calc[4]
         mass += stage_calc[3]
         work += stage_calc[5]
-        n_blades += stage_calc[11]
-        Fx += stage_calc[12]
+        n_blades += stage_calc[7][10]+stage_calc[7][11]
+        Fx += stage_calc[11]
         dims.append(stage_calc[7])
-        Re += (stage_calc[13][0]+stage_calc[13][1])/(2*n)
-        expansion_lims.append(stage_calc[14])
+        Re += (stage_calc[13][0]+stage_calc[12][1])/(2*n)
+        expansion_lims.append(stage_calc[13])
         #Move to the next stage
         i += 1
     #Find the efficiency using the overall loss
     eff = del_ho/(del_ho+To1*loss)
     #More outputs can be added for whatever is needed
-    return eff, work*mdot, mass, volume, length, dims, n_blades, loss_comp, Poi, Toi, angle, inits, angle_warning, Fx, Re, expansion_lims
+    return eff, work*mdot, mass, volume, length, dims, n_blades, loss_comp, Poi, Toi, angle, inits, angle_warning, Fx, Re, expansion_lims, stage_params
 
 ###################
 ###STAGE ROUTINE###
@@ -317,9 +319,10 @@ def stage(Po1, To1, del_ho, params, sizes, gas_props, materials):
     blade_areas = [stator_A, rotor_A]
     mass_calc = stage_mass(To1, Po1, Po3, dimensions, Omega, blade_areas, materials, stage_n, n_stages)
     mass = mass_calc[0]
-    n_blades = mass_calc[1]
-    Ro_st = mass_calc[2]
-    Ri_ro = mass_calc[3]
+    stator_blades_N = mass_calc[1]
+    rotor_blades_N = mass_calc[2]
+    Ro_st = mass_calc[3]
+    Ri_ro = mass_calc[4]
     dimensions.append(Ro_st)
     dimensions.append(Ri_ro)
     #Axial force on rotor
@@ -328,20 +331,20 @@ def stage(Po1, To1, del_ho, params, sizes, gas_props, materials):
     vels.append(V3)
     pressures = [P1, P2, P3]
     thermal_calc = start_up(vels, states, pressures, dimensions, materials, gas)
-    dg_c = mass_calc[4][0]-mass_calc[4][1]
-    dg_h = mass_calc[5][0]-mass_calc[5][1]
+    dg_c = mass_calc[5][0]-mass_calc[5][1]
+    dg_h = mass_calc[6][0]-mass_calc[6][1]
     #The heating time constants can be used to get an estimate of a worst
     #case scenrio where one component is fully heated and the other only
     #heated to some fraction governed by the relative heating times
     if thermal_calc[0] < thermal_calc[1]:
         #Scenario where stator heats up faster
-        dr_st = mass_calc[5][0]
-        dr_ro = mass_calc[4][1]+thermal_calc[0]/thermal_calc[1]*(mass_calc[5][1]-mass_calc[4][1])
+        dr_st = mass_calc[6][0]
+        dr_ro = mass_calc[5][1]+thermal_calc[0]/thermal_calc[1]*(mass_calc[6][1]-mass_calc[5][1])
         dg_warm = dr_st-dr_ro
     if thermal_calc[0] >= thermal_calc[1]:
         #Scenario where rotor heats up faster
-        dr_ro = mass_calc[5][1]
-        dr_st = mass_calc[4][0]+thermal_calc[1]/thermal_calc[0]*(mass_calc[5][0]-mass_calc[4][0])
+        dr_ro = mass_calc[6][1]
+        dr_st = mass_calc[5][0]+thermal_calc[1]/thermal_calc[0]*(mass_calc[6][0]-mass_calc[5][0])
         dg_warm = dr_st-dr_ro
     #Depending on the relative values of the hot and cold strains, the tip
     #clearance when cold-static, cold-rotating warm-rotating hot-rotating will change
@@ -374,10 +377,10 @@ def stage(Po1, To1, del_ho, params, sizes, gas_props, materials):
         if print_warnings:
             print('WARNING: STAGE {}: POSSIBLE ROTOR-STATOR CONTACT IN TRANSIENT HEATING'.format(stage_n))
     expansion_lims = cold_stat_g, cold_rot_g, warm_rot_g, hot_rot_g
-    dimensions = [r, H1, H2, H3, Cx_st, Cx_ro, ptc_st, ptc_ro, Ro_st, Ri_ro]
-    print(n_blades)
+    #List of the relevant dimensions
+    dimensions = [r, H1, H2, H3, Cx_st, Cx_ro, ptc_st, ptc_ro, Ro_st, Ri_ro, stator_blades_N, rotor_blades_N]
 
-    return To3, Po3, eff, mass, volume, work, length, dimensions, loss, loss_array, a3, n_blades, Fx, Res, expansion_lims
+    return To3, Po3, eff, mass, volume, work, length, dimensions, loss, loss_array, a3, Fx, Res, expansion_lims
 
 ######################
 ###VORTEX FUNCTIONS###
@@ -861,7 +864,6 @@ def stage_mass(To1, Po1, Po3, dimensions, Omega, blade_areas, materials, stage_n
     rotor_total_mass = rotor_ring_mass+rotor_blade_mass
     #Sum for total mass and blades
     stage_mass = rotor_total_mass+stator_total_mass
-    stage_blades = rotor_blade_N+stator_blade_N
     #Changes in radii from cold-static to cold-rotating
     stator_Rs = [r+H_st/2, stator_Ro]
     rotor_Rs = [rotor_Ri, r-H_ro/2]
@@ -869,7 +871,7 @@ def stage_mass(To1, Po1, Po3, dimensions, Omega, blade_areas, materials, stage_n
     #Changes in radii from cold-static to hot-rotating
     dr_hot = elongation(materials, stator_Rs, rotor_Rs, m_shroud, A_ro, Omega, Po1, Po3, P_blades, To1)
 
-    return stage_mass, stage_blades, stator_Ro, rotor_Ri, dr_cold, dr_hot
+    return stage_mass, stator_blade_N, rotor_blade_N, stator_Ro, rotor_Ri, dr_cold, dr_hot
 
 
 def blade_force(P1, P2, r, H1, H2):

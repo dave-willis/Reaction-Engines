@@ -36,20 +36,15 @@ def b2b_data(turbine_data):
     n = turbine_data[11][12]
     #Number of points per blade plot
     points = 500
+    TE_points = 200
     #Scale the outputs for m/cm/mm etc
     scale = 1000
     #Initialise values
     l = 0
     #Array size set by the maximum number of stages
     max_stages = 30
-    xp = np.zeros([4*max_stages, points])
-    yp = np.zeros([4*max_stages, points])
-    xs = np.zeros([4*max_stages, points])
-    ys = np.zeros([4*max_stages, points])
-    tecx = np.zeros([4*max_stages, points])
-    tecy = np.zeros([4*max_stages, points])
-    tecx2 = np.zeros([4*max_stages, points])
-    tecy2 = np.zeros([4*max_stages, points])
+    x = np.zeros([4*max_stages, 2*points+TE_points])
+    y = np.zeros([4*max_stages, 2*points+TE_points])
     #Loop over every stage
     for i in range(n):
         #Extract stage parameters
@@ -69,45 +64,21 @@ def b2b_data(turbine_data):
         else:
             l += Cxst*1.5+Cxro*1.5
         #Pass parameters to profile function for stator
-        XP, YP, XS, YS, TEcx, TEcy, TEcx2, TEcy2 = Profile(a1, a2, tTE/Cxst, Cxst, points)
+        XP, YP, XS, YS, X, Y = Profile(a1, a2, tTE, Cxst, points, TE_points)
         #Store results
-        xp[4*i] = [j+x0st for j in XP]
-        yp[4*i] = YP
-        xs[4*i] = [j+x0st for j in XS]
-        ys[4*i] = YS
-        tecx[4*i] = [j+x0st for j in TEcx]
-        tecy[4*i] = TEcy
-        tecx2[4*i] = [j+x0st for j in TEcx2]
-        tecy2[4*i] = TEcy2
-        xp[4*i+1] = [j+x0st for j in XP]
-        yp[4*i+1] = [j+Cxst*ptcst for j in YP]
-        xs[4*i+1] = [j+x0st for j in XS]
-        ys[4*i+1] = [j+Cxst*ptcst for j in YS]
-        tecx[4*i+1] = [j+x0st for j in TEcx]
-        tecy[4*i+1] = [j+Cxst*ptcst for j in TEcy]
-        tecx2[4*i+1] = [j+x0st for j in TEcx2]
-        tecy2[4*i+1] = [j+Cxst*ptcst for j in TEcy2]
+        x[4*i] = [j+x0st for j in X]
+        y[4*i] = Y
+        x[4*i+1] = [j+x0st for j in X]
+        y[4*i+1] = [j+Cxst*ptcst for j in Y]
         #Pass parameters to profile function for rotor
-        XP, YP, XS, YS, TEcx, TEcy, TEcx2, TEcy2 = Profile(b2, b3, tTE/Cxro, Cxro, points)
+        XP, YP, XS, YS, X, Y = Profile(b2, b3, tTE, Cxro, points)
         #Store results
-        xp[4*i+2] = [j+x0ro for j in XP]
-        yp[4*i+2] = YP
-        xs[4*i+2] = [j+x0ro for j in XS]
-        ys[4*i+2] = YS
-        tecx[4*i+2] = [j+x0ro for j in TEcx]
-        tecy[4*i+2] = TEcy
-        tecx2[4*i+2] = [j+x0ro for j in TEcx2]
-        tecy2[4*i+2] = TEcy2
-        xp[4*i+3] = [j+x0ro for j in XP]
-        yp[4*i+3] = [j+Cxro*ptcro for j in YP]
-        xs[4*i+3] = [j+x0ro for j in XS]
-        ys[4*i+3] = [j+Cxro*ptcro for j in YS]
-        tecx[4*i+3] = [j+x0ro for j in TEcx]
-        tecy[4*i+3] = [j+Cxro*ptcro for j in TEcy]
-        tecx2[4*i+3] = [j+x0ro for j in TEcx2]
-        tecy2[4*i+3] = [j+Cxro*ptcro for j in TEcy2]
+        x[4*i+2] = [j+x0ro for j in X]
+        y[4*i+2] = Y
+        x[4*i+3] = [j+x0ro for j in X]
+        y[4*i+3] = [j+Cxro*ptcro for j in Y]
 
-    return scale*xp, scale*yp, scale*xs, scale*ys, scale*tecx, scale*tecy, scale*tecx2, scale*tecy2, scale, max_stages
+    return scale*x, scale*y, scale, max_stages
 
 def b2b_plot(turbine_data):
     """Plot blade-to-blade profiles for the whole turbine"""
@@ -118,8 +89,7 @@ def b2b_plot(turbine_data):
     n = turbine_data[11][12]
     #Plot each bit of data, which are in the form of 2D arrays
     plt.figure()
-    for i in range(4):
-        plt.plot(data[2*i][:4*n].T, data[2*i+1][:4*n].T, 'black', lw=2)
+    plt.plot(data[0][:4*n].T, data[1][:4*n].T, 'black', lw=2)
     plt.axis('equal')
     plt.xlabel('Distance along turbine (mm)')
     plt.ylabel('Tangential distance (mm)')
@@ -149,8 +119,8 @@ def b2b_variable(turbine_data=new_turbine):
     ptc02 = ptc[-1]
     #Use function to get data for b2b plot
     data = b2b_data(new_turbine)
-    scale = data[8]
-    max_stages = data[9]
+    scale = data[2]
+    max_stages = data[3]
     Cxst1 = new_turbine[5][0][4]
     Cxron = new_turbine[5][-1][5]
     Cxmax = np.amax([i[4] for i in new_turbine[5]])
@@ -158,10 +128,7 @@ def b2b_variable(turbine_data=new_turbine):
     fig, ax = plt.subplots()
     plt.subplots_adjust(left=0.06, right=0.86, top=0.85, bottom=0.2)
     plt.subplots_adjust(bottom=0.25)
-    pres = plt.plot(data[0].T, data[1].T, 'black', lw=2)
-    suc = plt.plot(data[2].T, data[3].T, 'black', lw=2)
-    te1 = plt.plot(data[4].T, data[5].T, 'black', lw=2)
-    te2 = plt.plot(data[6].T, data[7].T, 'black', lw=2)
+    blades = plt.plot(data[0].T, data[1].T, 'black', lw=2)
     plt.axis('equal')
     ax.set_xbound(np.amin(data[0][:4*n])-scale*Cxst1, np.amax(data[0][:4*n])+scale*Cxron)
     ax.set_ybound(np.amin(data[1][:4*n])-scale*Cxmax, np.amax(data[1][:4*n])+scale*Cxmax)
@@ -269,14 +236,14 @@ def b2b_variable(turbine_data=new_turbine):
         #Update plots
         for i in range(max_stages):
             for j in range(4):
-                pres[4*i+j].set_xdata(data[0].T[:, 4*i+j])
-                pres[4*i+j].set_ydata(data[1].T[:, 4*i+j])
-                suc[4*i+j].set_xdata(data[2].T[:, 4*i+j])
-                suc[4*i+j].set_ydata(data[3].T[:, 4*i+j])
-                te1[4*i+j].set_xdata(data[4].T[:, 4*i+j])
-                te1[4*i+j].set_ydata(data[5].T[:, 4*i+j])
-                te2[4*i+j].set_xdata(data[6].T[:, 4*i+j])
-                te2[4*i+j].set_ydata(data[7].T[:, 4*i+j])
+                blades[4*i+j].set_xdata(data[0].T[:, 4*i+j])
+                blades[4*i+j].set_ydata(data[1].T[:, 4*i+j])
+        #Update the figure
+        Cxst1 = new_turbine[5][0][4]
+        Cxron = new_turbine[5][-1][5]
+        Cxmax = np.amax([i[4] for i in new_turbine[5]])
+        ax.set_xbound(np.amin(data[0][:4*n])-scale*5*Cxst1, np.amax(data[0][:4*n])+scale*5*Cxron)
+        ax.set_ybound(np.amin(data[1][:4*n])-scale*Cxmax, np.amax(data[1][:4*n])+scale*Cxmax)
         #Update the efficiency and angle boxes
         eff.set_val('Efficiency: {}%'.format(np.round(100*new_turbine[0], 2)))
         eff.stop_typing()
@@ -296,12 +263,6 @@ def b2b_variable(turbine_data=new_turbine):
         else:
             angle_max.color = 'g'
             angle_max.hovercolor = 'g'
-        #Update the figure
-        Cxst1 = new_turbine[5][0][4]
-        Cxron = new_turbine[5][-1][5]
-        Cxmax = np.amax([i[4] for i in new_turbine[5]])
-        ax.set_xbound(np.amin(data[0][:4*n])-scale*Cxst1, np.amax(data[0][:4*n])+scale*Cxron)
-        ax.set_ybound(np.amin(data[1][:4*n])-scale*Cxmax, np.amax(data[1][:4*n])+scale*Cxmax)
     #When any of the sliders are changed, update the figure
     sphi1.on_changed(update)
     sphi2.on_changed(update)
