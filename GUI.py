@@ -242,7 +242,7 @@ def b2b_variable(turbine_data=new_turbine):
         Cxst1 = new_turbine[5][0][4]
         Cxron = new_turbine[5][-1][5]
         Cxmax = np.amax([i[4] for i in new_turbine[5]])
-        ax.set_xbound(np.amin(data[0][:4*n])-scale*5*Cxst1, np.amax(data[0][:4*n])+scale*5*Cxron)
+        ax.set_xbound(np.amin(data[0][:4*n])-scale*2*Cxst1, np.amax(data[0][:4*n])+scale*2*Cxron)
         ax.set_ybound(np.amin(data[1][:4*n])-scale*Cxmax, np.amax(data[1][:4*n])+scale*Cxmax)
         #Update the efficiency and angle boxes
         eff.set_val('Efficiency: {}%'.format(np.round(100*new_turbine[0], 2)))
@@ -366,107 +366,128 @@ def annulus(turbine_data):
 
     #Extract values form turbine function output
     chords = [[i[3], i[4]] for i in turbine_data[5]]
-    Hst = [(i[1]+i[2])/2 for i in turbine_data[5]]
+    H1s = [i[1] for i in turbine_data[5]]
+    H2s = [i[2] for i in turbine_data[5]]
+    H3s = [i[3] for i in turbine_data[5]]
     rm = [i[0] for i in turbine_data[5]]
     Ro = [i[8] for i in turbine_data[5]]
     Ri = [i[9] for i in turbine_data[5]]
     n = turbine_data[11][12]
+    g = turbine_data[11][6]
     #Initialise lists
     length = 0
-    x = []
-    r_hub = []
-    r_cas = []
+    x_hub = [0]
+    x_cas = [0]
+    r_hub = [rm[0]-H1s[0]/2]
+    r_cas = [rm[0]+H1s[0]/2]
     #Loop over every stage
     fig, ax = plt.subplots()
     for i in range(n):
         #Extract stage parameters
         Cxst, Cxro = chords[i]
-        #Add the position to the array
-        if i == 0:
-            x.append(length)
-            r_hub.append(rm[i]-Hst[i]/2)
-            r_cas.append(rm[i]+Hst[i]/2)
-        else:
-            x.append(length+Cxst*0.25)
-            r_hub.append(rm[i]-Hst[i]/2)
-            r_cas.append(rm[i]+Hst[i]/2)
+        #Hub line including shroud cavity for stator
+        hub1x = length+0.125*Cxst-g/2
+        hub2x = hub1x
+        hub3x = length+1.375*Cxst+g/2
+        hub4x = hub3x
+        hub5x = length+1.5*Cxst
+        hub6x = length+1.5*Cxst+1.5*Cxro
+        x_hub += [hub1x, hub2x, hub3x, hub4x, hub5x, hub6x]
+        hub5y = rm[i]-H2s[i]/2
+        hub6y = rm[i]-H3s[i]/2
+        hub1y = r_hub[6*i]+(0.125*Cxst-g/2)/(1.5*Cxst)*(hub5y-r_hub[6*i])
+        hub2y = hub1y-0.001-g
+        hub4y = r_hub[6*i]+(1.375*Cxst+g/2)/(1.5*Cxst)*(hub5y-r_hub[6*i])
+        hub3y = hub4y-0.001-g
+        r_hub += [hub1y, hub2y, hub3y, hub4y, hub5y, hub6y]
+        #Casing line including shroud cavity for rotor
+        cas1x = length+1.5*Cxst
+        cas2x = cas1x+0.125*Cxro-g/2
+        cas3x = cas2x
+        cas4x = cas1x+1.375*Cxro+g/2
+        cas5x = cas4x
+        cas6x = cas1x+1.5*Cxro
+        x_cas += [cas1x, cas2x, cas3x, cas4x, cas5x, cas6x]
+        cas1y = rm[i]+H2s[i]/2
+        cas6y = rm[i]+H3s[i]/2
+        cas2y = cas1y+(0.125*Cxro-g/2)/(1.5*Cxro)*(cas6y-cas1y)
+        cas3y = cas2y+0.001+g
+        cas5y = cas1y+(1.375*Cxro+g/2)/(1.5*Cxro)*(cas6y-cas1y)
+        cas4y = cas5y+0.001+g
+        r_cas += [cas1y, cas2y, cas3y, cas4y, cas5y, cas6y]
         #Calculate the length along the turbine
-        #First stage
-        if n > 1 and i == 0:
-            length += Cxst*1.25+Cxro*1.5
-        #Add an extra length for the final stage
-        elif n > 1 and i == n-1:
-            length += Cxst*1.5+Cxro*1.25
-            x.append(length)
-            r_hub.append((r_hub[i]-r_hub[i-1])/(x[i]-x[i-1])*(x[i+1]-x[i])+r_hub[i])
-            r_cas.append((r_cas[i]-r_cas[i-1])/(x[i]-x[i-1])*(x[i+1]-x[i])+r_cas[i])
-        #If 1 stage then cut off the end
-        elif n == 1:
-            length += Cxst*1.25+Cxro*1.25
-            x.append(length)
-            r_hub.append(r_hub[i])
-            r_cas.append(r_cas[i])
-        else:
-            length += Cxst*1.5+Cxro*1.5
-    #Plot blades
-    for i in range(n):
-        #Extract stage parameters
-        Cxst, Cxro = chords[i]
-        #Calculate the positions of the mid-stage points by interpolation
-        y1_cas = r_cas[i]
-        y1_hub = r_hub[i]
-        y2_cas = r_cas[i]+Cxst/(x[i+1]-x[i])*(r_cas[i+1]-r_cas[i])
-        y2_hub = r_hub[i]+Cxst/(x[i+1]-x[i])*(r_hub[i+1]-r_hub[i])
-        y3_cas = r_cas[i]+(1.25*Cxst+0.25*Cxro)/(x[i+1]-x[i])*(r_cas[i+1]-r_cas[i])
-        y3_hub = r_hub[i]+(1.25*Cxst+0.25*Cxro)/(x[i+1]-x[i])*(r_hub[i+1]-r_hub[i])
-        y4_cas = r_cas[i]+(1.25*Cxst+1.25*Cxro)/(x[i+1]-x[i])*(r_cas[i+1]-r_cas[i])
-        y4_hub = r_hub[i]+(1.25*Cxst+1.25*Cxro)/(x[i+1]-x[i])*(r_hub[i+1]-r_hub[i])
-        x1 = x[i]
-        x2 = x[i]+Cxst
-        x3 = x[i]+1.25*Cxst+0.25*Cxro
-        x4 = x[i]+1.25*Cxst+1.25*Cxro
-        #Plot lines for the blades
-        plt.plot([x1, x1], [y1_hub, y1_cas], color='0.5', lw=0.8)
-        plt.plot([x2, x2], [y2_hub, y2_cas], color='0.5', lw=0.8)
-        plt.plot([x1, x2], [y1_hub, y2_cas], color='0.5', lw=0.8)
-        plt.plot([x1, x2], [y1_cas, y2_hub], color='0.5', lw=0.8)
-        plt.plot([x3, x3], [y3_hub, y3_cas], color='0.2', lw=0.8)
-        plt.plot([x4, x4], [y4_hub, y4_cas], color='0.2', lw=0.8)
-        plt.plot([x3, x4], [y3_hub, y4_cas], color='0.2', lw=0.8)
-        plt.plot([x3, x4], [y3_cas, y4_hub], color='0.2', lw=0.8)
+        length += Cxst*1.5+Cxro*1.5
+        #Plot stator, starting at upstream root and working anti-clockwise
+        y1 = r_cas[6*i]+0.25/1.5*(cas1y-r_cas[6*i])
+        y2 = r_hub[6*i]+0.25/1.5*(hub5y-r_hub[6*i])
+        y3 = r_hub[6*i]+(0.125*Cxst+g/2)/(1.5*Cxst)*(hub5y-r_hub[6*i])
+        y4 = y3-0.001
+        y6 = r_hub[6*i]+(1.375*Cxst-g/2)/(1.5*Cxst)*(hub5y-r_hub[6*i])
+        y5 = y6-0.001
+        y7 = r_hub[6*i]+1.25/1.5*(hub5y-r_hub[6*i])
+        y8 = r_cas[6*i]+1.25/1.5*(cas1y-r_cas[6*i])
+        x1 = x_cas[6*i]+0.25*Cxst
+        x2 = x_cas[6*i]+0.125*Cxst+g/2
+        x3 = x_cas[6*i]+1.375*Cxst-g/2
+        x4 = x_cas[6*i]+1.25*Cxst
+        x = [x1, x1, x2, x2, x3, x3, x4, x4]
+        y = [y1, y2, y3, y4, y5, y6, y7, y8]
+        plt.plot(x, y, color='0.5', lw=0.8)
+        plt.plot([x1, x4], [y1, y7], color='0.5', lw=0.8)
+        plt.plot([x1, x4], [y2, y8], color='0.5', lw=0.8)
+        #Plot rotor, starting at upstream root and working clockwise
+        y1 = hub5y+0.25/1.5*(hub6y-hub5y)
+        y2 = cas1y+0.25/1.5*(cas6y-cas1y)
+        y3 = cas1y+(0.125*Cxro+g/2)/(1.5*Cxro)*(cas6y-cas1y)
+        y4 = y3+0.001
+        y6 = cas1y+(1.375*Cxro-g/2)/(1.5*Cxro)*(cas6y-cas1y)
+        y5 = y6+0.001
+        y7 = cas1y+1.25/1.5*(cas6y-cas1y)
+        y8 = hub5y+1.25/1.5*(hub6y-hub5y)
+        x1 = cas1x+0.25*Cxro
+        x2 = cas1x+0.125*Cxro+g/2
+        x3 = cas1x+1.375*Cxro-g/2
+        x4 = cas1x+1.25*Cxro
+        x = [x1, x1, x2, x2, x3, x3, x4, x4]
+        y = [y1, y2, y3, y4, y5, y6, y7, y8]
+        plt.plot(x, y, color='0.2', lw=0.8)
+        plt.plot([x1, x4], [y1, y7], color='0.2', lw=0.8)
+        plt.plot([x1, x4], [y2, y8], color='0.2', lw=0.8)
     #Duplicate some entries for square stages
-    r_hub = [val for val in r_hub for _ in (0, 1)]
-    r_cas = [val for val in r_cas for _ in (0, 1)]
-    x = [val for val in x for _ in (0, 1)]
-    del r_hub[0], r_hub[-1], r_cas[0], r_cas[-1], x[0], x[-1]
-    Ri = [val for val in Ri for _ in (0, 1)]
-    Ro = [val for val in Ro for _ in (0, 1)]
+    Ri = [val-0.001-g for val in Ri for _ in range(7)]
+    Ro = [val+0.001+g for val in Ro for _ in range(7)]
+    for i in range(1, n):
+        r_hub.insert(6*i+i-1, r_hub[6*i+i-1])
+        r_cas.insert(6*i+i-1, r_cas[6*i+i-1])
+        x_hub.insert(6*i+i-1, x_hub[6*i+i-1])
+        x_cas.insert(6*i+i-1, x_cas[6*i+i-1])
     #Stages at constant thickness
-    for i in range(2, n):
-        dr_hub = r_hub[2*i-1]-r_hub[2*i-2]
-        Ri[2*i-1] = Ri[2*i-1]+dr_hub
-        if Ri[2*i-1] < 0:
-            Ri[2*i-1] = 0
-    for i in range(n+1):
-        dr_cas = r_cas[2*i-1]-r_cas[2*i-2]
-        Ro[2*i-1] = Ro[2*i-1]+dr_cas
+    for i in range(0, n):
+        dr_hub = r_hub[7*i+6]-r_hub[7*i]
+        Ri[7*i:7*(i+1)] = list(np.interp(x_hub[7*i:7*(i+1)],[x_hub[7*i], x_hub[7*i+6]], [Ri[7*i], Ri[7*i]+dr_hub]))
+    for i, j in enumerate(Ri):
+        if j < 0:
+            Ri[i] = 0
+    for i in range(0, n):
+        dr_cas = r_cas[7*i+6]-r_cas[7*i]
+        Ro[7*i:7*(i+1)] = list(np.interp(x_cas[7*i:7*(i+1)],[x_cas[7*i], x_cas[7*i+6]], [Ro[7*i], Ro[7*i]+dr_cas]))
     #Plot lines separating stages
     plt.plot([0, 0], [r_hub[0], 0], color='black', lw=1.2)
     plt.plot([0, 0], [r_cas[0], Ro[0]], color='black', lw=1.2)
     for i in range(1, n):
-        min_Ri = min(Ri[2*i-1], Ri[2*i])
-        max_Ro = max(Ro[2*i-1], Ro[2*i])
-        plt.plot([x[2*i-1], x[2*i-1]], [r_hub[2*i-1], min_Ri], color='black', lw=1.2)
-        plt.plot([x[2*i-1], x[2*i-1]], [r_cas[2*i-1], max_Ro], color='black', lw=1.2)
-    plt.plot([x[-1], x[-1]], [r_hub[-1], 0], color='black', lw=1.2)
-    plt.plot([x[-1], x[-1]], [r_cas[-1], Ro[-1]], color='black', lw=1.2)
+        min_Ri = min(Ri[7*i-1], Ri[7*i])
+        max_Ro = max(Ro[7*i-1], Ro[7*i])
+        plt.plot([x_hub[7*i-1], x_hub[7*i-1]], [r_hub[7*i-1], min_Ri], color='black', lw=1.2)
+        plt.plot([x_cas[7*i-1], x_cas[7*i-1]], [r_cas[7*i-1], max_Ro], color='black', lw=1.2)
+    plt.plot([x_hub[-1], x_hub[-1]], [r_hub[-1], 0], color='black', lw=1.2)
+    plt.plot([x_cas[-1], x_cas[-1]], [r_cas[-1], Ro[-1]], color='black', lw=1.2)
     #Plot the results
-    plt.plot(x, r_hub, label='Hub', color=(0.0, 0.6, 0.9), linewidth=0.2)
-    plt.plot(x, r_cas, label='Casing', color=(0.9, 0.2, 0.0), linewidth=0.2)
-    plt.plot(x, Ri, color=(0.0, 0.6, 0.9), linewidth=0.2)
-    plt.plot(x, Ro, color=(0.9, 0.2, 0.0), linewidth=0.2)
-    plt.fill_between(x, Ri, r_hub, color=(0.0, 0.6, 0.9))
-    plt.fill_between(x, r_cas, Ro, color=(0.9, 0.2, 0.0))
+    plt.plot(x_hub, r_hub, label='Hub', color=(0.0, 0.6, 0.9), linewidth=0.2)
+    plt.plot(x_cas, r_cas, label='Casing', color=(0.9, 0.2, 0.0), linewidth=0.2)
+    plt.plot(x_hub, Ri, color=(0.0, 0.6, 0.9), linewidth=0.2)
+    plt.plot(x_cas, Ro, color=(0.9, 0.2, 0.0), linewidth=0.2)
+    plt.fill_between(x_hub, Ri, r_hub, color=(0.0, 0.6, 0.9))
+    plt.fill_between(x_cas, r_cas, Ro, color=(0.9, 0.2, 0.0))
     plt.xlabel('Length along turbine (m)')
     plt.ylabel('Radius (m)')
     plt.axis('equal')

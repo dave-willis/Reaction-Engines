@@ -379,7 +379,6 @@ def stage(Po1, To1, del_ho, params, sizes, gas_props, materials):
     expansion_lims = cold_stat_g, cold_rot_g, warm_rot_g, hot_rot_g
     #List of the relevant dimensions
     dimensions = [r, H1, H2, H3, Cx_st, Cx_ro, ptc_st, ptc_ro, Ro_st, Ri_ro, stator_blades_N, rotor_blades_N]
-
     return To3, Po3, eff, mass, volume, work, length, dimensions, loss, loss_array, a3, Fx, Res, expansion_lims
 
 ######################

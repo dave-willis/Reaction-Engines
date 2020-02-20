@@ -101,7 +101,6 @@ if save_geom:
     for i in range(n):
         
         a1s, a2s, b2s, b3s = free_vortex(result[10][i], [stages_rm[i], stages_H1[i], stages_H2[i]], stages_phi[i])
-        
         hub_r.append(stages_rm[i]-stages_H2[i]/2)
         hub_x.append(z+1.5*stages_Cst[i])
         hub_r.append(stages_rm[i]-stages_H3[i]/2)
@@ -146,9 +145,9 @@ if save_geom:
 
 if plot == 'yes':
     from GUI import b2b_variable, b2b_plot, annulus
-    b2b_variable(result)
+    # b2b_variable(result)
     # b2b_plot(result)
-    # annulus(result)
+    annulus(result)
 
 if calcs == 'brute force':
     start_time = time.time()
