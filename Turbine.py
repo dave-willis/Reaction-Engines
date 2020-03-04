@@ -10,10 +10,13 @@ import scipy.integrate as integrate
 from scipy.optimize import minimize
 from Profile import blade_dims
 import csv
+import matplotlib.pyplot as plt
 
 #Declare a few global options
 print_warnings = False #If True, will print warnings when material limits are exceeded
 fast_dimensions = True #If True, will interpolate from tables for blade dimensions
+transient_analysis = True #If True, will perform full transient analysis on start-up
+plotting = [9] #Stage number to plot transient, otherwise no plotting 
 
 ##########################
 ###MAIN TURBINE ROUTINE###
@@ -201,7 +204,7 @@ def turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc=-1
 def stage(Po1, To1, del_ho, params, sizes, gas_props, materials):
     """Return the stage losses and exit conditions"""
 
-    global fast_dimensions, print_warnings
+    global fast_dimensions, print_warnings, transient_analysis, plotting
     #Gas properties
     cp, gamma, R, gas = gas_props
     #Stage parameters
@@ -330,7 +333,9 @@ def stage(Po1, To1, del_ho, params, sizes, gas_props, materials):
     #Thermal start up
     vels.append(V3)
     pressures = [P1, P2, P3]
-    thermal_calc = start_up(vels, states, pressures, dimensions, materials, gas)
+    thermal_calc = thermal(vels, states, pressures, dimensions, materials, gas)
+    tau_st = thermal_calc[0]
+    tau_ro = thermal_calc[1]
     dg_c = mass_calc[5][0]-mass_calc[5][1]
     dg_h = mass_calc[6][0]-mass_calc[6][1]
     #The heating time constants can be used to get an estimate of a worst
@@ -339,13 +344,23 @@ def stage(Po1, To1, del_ho, params, sizes, gas_props, materials):
     if thermal_calc[0] < thermal_calc[1]:
         #Scenario where stator heats up faster
         dr_st = mass_calc[6][0]
-        dr_ro = mass_calc[5][1]+thermal_calc[0]/thermal_calc[1]*(mass_calc[6][1]-mass_calc[5][1])
+        dr_ro = mass_calc[5][1]+tau_st/tau_ro*(mass_calc[6][1]-mass_calc[5][1])
         dg_warm = dr_st-dr_ro
     if thermal_calc[0] >= thermal_calc[1]:
         #Scenario where rotor heats up faster
         dr_ro = mass_calc[6][1]
-        dr_st = mass_calc[5][0]+thermal_calc[1]/thermal_calc[0]*(mass_calc[6][0]-mass_calc[5][0])
+        dr_st = mass_calc[5][0]+tau_ro/tau_st*(mass_calc[6][0]-mass_calc[5][0])
         dg_warm = dr_st-dr_ro
+    #Transient analysis if requested at the top
+    if transient_analysis:
+        trans = [True, tau_st, tau_ro]
+        #This is not an ideal solution but as long as stage_mass is called like
+        #this then it will just return the transient clearances
+        dim_trans = t, g, r, H_st, H_ro, Cx_st, Cx_ro, w_st, w_ro, ptc_st, ptc_ro
+        trans_ans = stage_mass(To1, Po1, Po3, dim_trans, Omega, blade_areas, materials, stage_n, n_stages, trans)
+        dg_warm = trans_ans[0]
+        g_trans = trans_ans[1]
+        t_trans = trans_ans[2]
     #Depending on the relative values of the hot and cold strains, the tip
     #clearance when cold-static, cold-rotating warm-rotating hot-rotating will change
     if dg_c >= 0 and dg_h >= 0:
@@ -376,7 +391,24 @@ def stage(Po1, To1, del_ho, params, sizes, gas_props, materials):
     if warm_rot_g < 0:
         if print_warnings:
             print('WARNING: STAGE {}: POSSIBLE ROTOR-STATOR CONTACT IN TRANSIENT HEATING'.format(stage_n))
-    expansion_lims = cold_stat_g, cold_rot_g, warm_rot_g, hot_rot_g
+    if stage_n in plotting and transient_analysis:
+        time = [0, 5, 8, 13]
+        clearances = [cold_stat_g, cold_stat_g, cold_rot_g, cold_rot_g]
+        t_trans = [i+13 for i in t_trans]
+        trans_start = cold_rot_g-g_trans[0]
+        g_trans = [i+trans_start for i in g_trans]
+        time += t_trans
+        clearances += g_trans
+        clearances = [i*1000 for i in clearances]
+        plt.plot(time, clearances, label=stage_n)
+        if len(plotting) > 1:
+            plt.legend()
+        plt.xlabel('Time (s)', fontsize=20)
+        plt.ylabel('Tip clearance (mm)', fontsize=20)
+        plt.tick_params(axis="x", labelsize=20)
+        plt.tick_params(axis="y", labelsize=20)
+        
+    expansion_lims = cold_stat_g, cold_rot_g, warm_rot_g, hot_rot_g, thermal_calc[0], thermal_calc[1]
     #List of the relevant dimensions
     dimensions = [r, H1, H2, H3, Cx_st, Cx_ro, ptc_st, ptc_ro, Ro_st, Ri_ro, stator_blades_N, rotor_blades_N]
     return To3, Po3, eff, mass, volume, work, length, dimensions, loss, loss_array, a3, Fx, Res, expansion_lims
@@ -809,7 +841,7 @@ def stator_mass(rm, H_st, H_ro, Cx_st, Cx_ro, sigma_y, Po1, rho_m, stage_n):
 
     return m, Ro
 
-def stage_mass(To1, Po1, Po3, dimensions, Omega, blade_areas, materials, stage_n, n_stages):
+def stage_mass(To1, Po1, Po3, dimensions, Omega, blade_areas, materials, stage_n, n_stages, trans = [False,False]):
     """Return the total mass of the stage"""
 
     global print_warnings
@@ -869,8 +901,13 @@ def stage_mass(To1, Po1, Po3, dimensions, Omega, blade_areas, materials, stage_n
     dr_cold = elongation(materials, stator_Rs, rotor_Rs, m_shroud, A_ro, Omega, Po1, Po3, P_blades, 293)
     #Changes in radii from cold-static to hot-rotating
     dr_hot = elongation(materials, stator_Rs, rotor_Rs, m_shroud, A_ro, Omega, Po1, Po3, P_blades, To1)
-
-    return stage_mass, stator_blade_N, rotor_blade_N, stator_Ro, rotor_Ri, dr_cold, dr_hot
+    #Perform transient analysis if asked for
+    if trans[0]:
+        taus = [trans[1], trans[2]]
+        trans_ans = transient(materials, stator_Rs, rotor_Rs, m_shroud, A_ro, Omega, Po1, Po3, P_blades, To1, taus)
+        return trans_ans
+    else:
+        return stage_mass, stator_blade_N, rotor_blade_N, stator_Ro, rotor_Ri, dr_cold, dr_hot
 
 
 def blade_force(P1, P2, r, H1, H2):
@@ -880,6 +917,24 @@ def blade_force(P1, P2, r, H1, H2):
     Fx = 2*np.pi*r*(H2*P2-H1*P1+(H2-H1)*(P1+P2)/2)
 
     return Fx
+
+def transient(materials, stator_Rs, rotor_Rs, m_shroud, A_ro, omega, Po1, Po3, P_blades, T, taus):
+    """Full transient analysis of the changing tip clearance"""
+    
+    #Time over which to calculate response
+    t = np.linspace(0, 10*max(taus), 1000)
+    tau_st, tau_ro = taus
+    T_st = [(293-T)*np.exp(-i/tau_st)+T for i in t]
+    T_ro = [(293-T)*np.exp(-i/tau_ro)+T for i in t]
+    #Find changes in radii of stator and rotor over the time period
+    dr_st = [elongation(materials, stator_Rs, rotor_Rs, m_shroud, A_ro, omega, Po1, Po3, P_blades, i)[0] for i in T_st]
+    dr_ro = [elongation(materials, stator_Rs, rotor_Rs, m_shroud, A_ro, omega, Po1, Po3, P_blades, i)[1] for i in T_ro]
+    #Find subsequent tip gaps
+    g_trans = [dr_st[i]-dr_ro[i] for i in range(len(t))]
+    #Find maximum gap
+    dg_warm = max(g_trans)
+    
+    return dg_warm, g_trans, t
 
 def elongation(materials, stator_Rs, rotor_Rs, m_shroud, A_ro, omega, Po1, Po3, P_blades, T):
     """Return the elongation of components"""
@@ -920,7 +975,7 @@ def elongation(materials, stator_Rs, rotor_Rs, m_shroud, A_ro, omega, Po1, Po3, 
 
     return dr_st, dr_ro
 
-def start_up(vels, states, pressures, dimensions, materials, gas):
+def thermal(vels, states, pressures, dimensions, materials, gas):
     """Return thermal behaviour of the stage at start up"""
 
     #Extract stage parameters

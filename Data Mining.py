@@ -25,7 +25,7 @@ psi = [0.778, 0.901]
 Lambda = [0.496, 0.507]
 AR = [0.643, 0.796]
 ptc = [1.1, 1.1]
-n = 10
+n = 5
 ain = 0
 dho = [1.0, 1.106]
 
@@ -75,6 +75,18 @@ print('No. Blades = {}'.format(int(result[6])))
 # print('Cold-stat, cold-rot, warm-rot, hot-rot:', result[15])
 # print(result[12])
 print('')
+if 1 == 2:
+    
+    dims = result[5]
+    
+    d_hubin = [2*i[9] for i in dims]
+    d_hubout = [2*(i[0]-i[2]/2) for i in dims]
+    d_casout = [2*i[8] for i in dims]
+    d_casin = [2*(i[0]+i[2]/2) for i in dims]
+    length = [1.5*(i[4]+i[5]) for i in dims]
+    
+    np.savez('Dims 10', d_hubin, d_hubout, d_casin, d_casout, length)
+    
 if save_geom:
     #Save geometry arrays for Autogrid
     stages_rm = [i[0] for i in result[5]]
@@ -145,9 +157,9 @@ if save_geom:
 
 if plot == 'yes':
     from GUI import b2b_variable, b2b_plot, annulus
-    # b2b_variable(result)
+    b2b_variable(result)
     # b2b_plot(result)
-    annulus(result)
+    # annulus(result)
 
 if calcs == 'brute force':
     start_time = time.time()

@@ -202,12 +202,12 @@ def Profile(X1, X2, TKTE, Cx, points=500, TE_points=200):
     Beta_te = 4.0
     Oval_frac = 0.3
     controls_thk_x = [0.0, 0.5, 1.0]
-    controls_thk_y = [(2.*Rle)**0.5*(1.-Oval_frac), 0.25, np.tan(np.radians(Beta_te))+Tte/2.]
+    controls_thk_y = [(2*Rle)**0.5*(1-Oval_frac), 0.25, np.tan(np.radians(Beta_te))+Tte/2]
 
     (XLIN, YLIN, XUIN, YUIN) = F_Make(X1, X2, controls_cam, controls_thk_x, controls_thk_y, Tte, Oval_frac)
 
-    XIN = (XUIN+XLIN)/2.
-    YIN = (YUIN+YLIN)/2.
+    XIN = (XUIN+XLIN)/2
+    YIN = (YUIN+YLIN)/2
     XScale = max(max(XUIN), max(XLIN))
     XUIN = XUIN/XScale
     XLIN = XLIN/XScale
@@ -228,7 +228,7 @@ def Profile(X1, X2, TKTE, Cx, points=500, TE_points=200):
 
     Snew = np.zeros((len(Ynew)))
     for i in range(1, len(Xnew)):
-        Snew[i] = Snew[i-1]+((Xnew[i]-Xnew[i-1])**2.+(Ynew[i]-Ynew[i-1])**2.)**0.5
+        Snew[i] = Snew[i-1]+((Xnew[i]-Xnew[i-1])**2.+(Ynew[i]-Ynew[i-1])**2)**0.5
 
     for i in range(1, len(Xnew)):
         if Xnew[i] == Xnew.min():
@@ -254,12 +254,12 @@ def Profile(X1, X2, TKTE, Cx, points=500, TE_points=200):
     LTE_m = (XLIN[-2]-XLIN[-1])/(YLIN[-1]-YLIN[-2])
     TE_circ_cx = (YUIN[-1]-YLIN[-1]+LTE_m*XLIN[-1]-UTE_m*XUIN[-1])/(LTE_m-UTE_m)
     TE_circ_cy = YUIN[-1]+UTE_m*(TE_circ_cx-XUIN[-1])
-    TE_circ_r = ((abs(XLIN[-1]-TE_circ_cx))**2+(abs(YLIN[-1]-TE_circ_cy))**2)**0.5
+    TE_circ_r = ((XLIN[-1]-TE_circ_cx)**2+(YLIN[-1]-TE_circ_cy)**2)**0.5
     U_theta = np.arccos((XUIN[-1]-TE_circ_cx)/TE_circ_r)
     L_theta = -np.arccos((XLIN[-1]-TE_circ_cx)/TE_circ_r)
     
     TE_points = 200
-    TE_theta = np.linspace(U_theta, L_theta, TE_points)
+    TE_theta = np.linspace(0.95*U_theta, L_theta, TE_points)
     TEx = TE_circ_cx - TE_circ_r*np.cos(np.pi-TE_theta)
     TEy = TE_circ_cy + TE_circ_r*np.sin(np.pi-TE_theta)
 
