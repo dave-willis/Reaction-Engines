@@ -25,7 +25,7 @@ psi = [0.778, 0.901]
 Lambda = [0.496, 0.507]
 AR = [0.643, 0.796]
 ptc = [1.1, 1.1]
-n = 5
+n = 10
 ain = 0
 dho = [1.0, 1.106]
 
@@ -58,14 +58,14 @@ ptc_lim = (0.7, 1.5)
 dh_lim = (1, 5)
 
 calcs = ''
-plot = 'yes'
+plot = ''
 save = ''
 save_geom = False
 start_time = time.time()
 result = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, ain, gas)
 print('Time: {} s'.format(time.time()-start_time))
 # print('Angles [a1,a2,b2,a3,b3]=', np.round(result[10],2))
-# print('Chords [Cxst,Cxro]=', np.round([[i[4],i[5]] for i in result[5]],6))
+print('Chords [Cxst,Cxro]=', np.round([[i[4],i[5]] for i in result[5]],6))
 print('Work = {} W'.format(result[1]))
 print('Efficiency = {}'.format(result[0]))
 print('Mass = {} kg'.format(result[2]))

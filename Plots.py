@@ -73,11 +73,11 @@ if plot == 'transient':
     x = np.arange(1, n+1)  # the label locations
     width = 0.2  # the width of the bars
     fig, ax = plt.subplots()
-    ax.bar(x - 3*width/2, cold_stat, width, label='Cold-static')
-    ax.bar(x - width/2, cold_rot, width, label='Cold-rotating')    
-    ax.bar(x + width/2, warm, width, label='Warm transient')
-    ax.bar(x + 3*width/2, hot, width, label='Hot soaked')
-    ax.set_ylabel('Maximum clearance (mm)', fontsize=20)
+    ax.bar(x - 3*width/2, cold_stat, width, color='tab:blue', label='Cold-static')
+    ax.bar(x - width/2, cold_rot, width, color='tab:green', label='Cold-rotating')    
+    ax.bar(x + width/2, warm, width, color='tab:orange', label='Warm transient')
+    ax.bar(x + 3*width/2, hot, width, color='tab:red', label='Hot soaked')
+    ax.set_ylabel('Change in clearance (mm)', fontsize=20)
     ax.set_xlabel('Stage number', fontsize=20)
     ax.set_xticks(x)
     ax.set_xticklabels(x)

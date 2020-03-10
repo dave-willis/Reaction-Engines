@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 #Declare a few global options
 print_warnings = False #If True, will print warnings when material limits are exceeded
 fast_dimensions = True #If True, will interpolate from tables for blade dimensions
-transient_analysis = True #If True, will perform full transient analysis on start-up
+transient_analysis = False #If True, will perform full transient analysis on start-up
 plotting = [9] #Stage number to plot transient, otherwise no plotting 
 
 ##########################
@@ -351,16 +351,6 @@ def stage(Po1, To1, del_ho, params, sizes, gas_props, materials):
         dr_ro = mass_calc[6][1]
         dr_st = mass_calc[5][0]+tau_ro/tau_st*(mass_calc[6][0]-mass_calc[5][0])
         dg_warm = dr_st-dr_ro
-    #Transient analysis if requested at the top
-    if transient_analysis:
-        trans = [True, tau_st, tau_ro]
-        #This is not an ideal solution but as long as stage_mass is called like
-        #this then it will just return the transient clearances
-        dim_trans = t, g, r, H_st, H_ro, Cx_st, Cx_ro, w_st, w_ro, ptc_st, ptc_ro
-        trans_ans = stage_mass(To1, Po1, Po3, dim_trans, Omega, blade_areas, materials, stage_n, n_stages, trans)
-        dg_warm = trans_ans[0]
-        g_trans = trans_ans[1]
-        t_trans = trans_ans[2]
     #Depending on the relative values of the hot and cold strains, the tip
     #clearance when cold-static, cold-rotating warm-rotating hot-rotating will change
     if dg_c >= 0 and dg_h >= 0:
@@ -388,26 +378,43 @@ def stage(Po1, To1, del_ho, params, sizes, gas_props, materials):
         cold_rot_g = 0.0
         warm_rot_g = dg_warm+abs(dg_c)
         hot_rot_g = dg_h-dg_c
+    #Transient analysis if requested at the top
+    if transient_analysis:
+        trans = [True, tau_st, tau_ro]
+        #This is not an ideal solution but as long as stage_mass is called like
+        #this then it will just return the transient clearances
+        dim_trans = t, g, r, H_st, H_ro, Cx_st, Cx_ro, w_st, w_ro, ptc_st, ptc_ro
+        trans_ans = stage_mass(To1, Po1, Po3, dim_trans, Omega, blade_areas, materials, stage_n, n_stages, trans)
+        g_trans = trans_ans[0]
+        trans_start = cold_rot_g-g_trans[0]
+        g_trans = [i+trans_start for i in g_trans]
+        t_trans = trans_ans[1]
+        warm_rot_g = max(g_trans, key=abs)
     if warm_rot_g < 0:
         if print_warnings:
             print('WARNING: STAGE {}: POSSIBLE ROTOR-STATOR CONTACT IN TRANSIENT HEATING'.format(stage_n))
     if stage_n in plotting and transient_analysis:
-        time = [0, 5, 8, 13]
-        clearances = [cold_stat_g, cold_stat_g, cold_rot_g, cold_rot_g]
-        t_trans = [i+13 for i in t_trans]
-        trans_start = cold_rot_g-g_trans[0]
-        g_trans = [i+trans_start for i in g_trans]
-        time += t_trans
-        clearances += g_trans
-        clearances = [i*1000 for i in clearances]
-        plt.plot(time, clearances, label=stage_n)
-        if len(plotting) > 1:
-            plt.legend()
+        t_cold = [0, 5]
+        t_spin = [5, 10]
+        t_cold_rot = [10, 15]
+        c_cold = [cold_stat_g*1000, cold_stat_g*1000]
+        c_spin = [cold_stat_g*1000, cold_rot_g*1000]
+        c_cold_rot = [cold_rot_g*1000, cold_rot_g*1000]
+        t_trans = [i+t_cold_rot[-1] for i in t_trans]
+        g_trans = [i*1000 for i in g_trans]
+        t_hot = [max(t_trans), max(t_trans)+10]
+        c_hot = [g_trans[-1], g_trans[-1]]
+        plt.plot(t_cold, c_cold, 'tab:blue', label='Cold-static')
+        plt.plot(t_spin, c_spin, color='black', linestyle='--')
+        plt.plot(t_cold_rot, c_cold_rot, 'tab:green', label='Cold-rotating')
+        plt.plot(t_trans, g_trans, 'tab:orange', label='Warm transient')
+        plt.plot(t_hot, c_hot, 'tab:red', label='Hot soaked')
+        plt.legend(prop={'size': 18})
         plt.xlabel('Time (s)', fontsize=20)
-        plt.ylabel('Tip clearance (mm)', fontsize=20)
+        plt.ylabel('Change in clearance (mm)', fontsize=20)
         plt.tick_params(axis="x", labelsize=20)
         plt.tick_params(axis="y", labelsize=20)
-        
+
     expansion_lims = cold_stat_g, cold_rot_g, warm_rot_g, hot_rot_g, thermal_calc[0], thermal_calc[1]
     #List of the relevant dimensions
     dimensions = [r, H1, H2, H3, Cx_st, Cx_ro, ptc_st, ptc_ro, Ro_st, Ri_ro, stator_blades_N, rotor_blades_N]
@@ -930,11 +937,9 @@ def transient(materials, stator_Rs, rotor_Rs, m_shroud, A_ro, omega, Po1, Po3, P
     dr_st = [elongation(materials, stator_Rs, rotor_Rs, m_shroud, A_ro, omega, Po1, Po3, P_blades, i)[0] for i in T_st]
     dr_ro = [elongation(materials, stator_Rs, rotor_Rs, m_shroud, A_ro, omega, Po1, Po3, P_blades, i)[1] for i in T_ro]
     #Find subsequent tip gaps
-    g_trans = [dr_st[i]-dr_ro[i] for i in range(len(t))]
-    #Find maximum gap
-    dg_warm = max(g_trans)
+    g_trans = [dr_st[i]-dr_ro[i] for i in range(len(t))]    
     
-    return dg_warm, g_trans, t
+    return g_trans, t
 
 def elongation(materials, stator_Rs, rotor_Rs, m_shroud, A_ro, omega, Po1, Po3, P_blades, T):
     """Return the elongation of components"""
