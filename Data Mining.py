@@ -1,6 +1,6 @@
 """Calculations for evaluating turbine performance"""
 
-from Turbine import turbine, angles, spline, optimise, free_vortex
+from turbine import turbine, angles, spline, optimise, free_vortex
 import numpy as np
 import time
 from multiprocessing import cpu_count
@@ -20,14 +20,45 @@ gas = 'He'
 del_ho = W/mdot
 To3 = To1-del_ho/cp
 
-phi = [0.272, 0.293]
-psi = [0.778, 0.901]
-Lambda = [0.496, 0.507]
-AR = [0.643, 0.796]
+# # n = 5
+# phi = [0.28, 0.32]
+# psi = [0.83, 1.08]
+# Lambda = [0.50, 0.52]
+# AR = [0.48, 0.62]
+# ptc = [1.1, 1.1]
+# n = 5
+# ain = 0
+# dho = [1.00, 1.11]
+
+# n = 10
+phi = [0.27, 0.29]
+psi = [0.78, 0.90]
+Lambda = [0.50, 0.51]
+AR = [0.64, 0.80]
 ptc = [1.1, 1.1]
 n = 10
 ain = 0
-dho = [1.0, 1.106]
+dho = [1.0, 1.11]
+
+# # n = 15
+# phi = [0.27, 0.28]
+# psi = [0.73, 0.81]
+# Lambda = [0.49, 0.51]
+# AR = [0.76, 0.92]
+# ptc = [1.1, 1.1]
+# n = 15
+# ain = 0
+# dho = [1.0, 1.11]
+
+# # n = 20
+# phi = [0.26, 0.27]
+# psi = [0.69, 0.74]
+# Lambda = [0.49, 0.51]
+# AR = [0.85, 1.01]
+# ptc = [1.1, 1.1]
+# n = 20
+# ain = 0
+# dho = [1.0, 1.11]
 
 # #Properties for representative real turbine
 # Po1 = 5*10**5
@@ -58,14 +89,14 @@ ptc_lim = (0.7, 1.5)
 dh_lim = (1, 5)
 
 calcs = ''
-plot = ''
+plot = 'yes'
 save = ''
-save_geom = False
+save_geom = True
 start_time = time.time()
 result = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, ain, gas)
 print('Time: {} s'.format(time.time()-start_time))
 # print('Angles [a1,a2,b2,a3,b3]=', np.round(result[10],2))
-print('Chords [Cxst,Cxro]=', np.round([[i[4],i[5]] for i in result[5]],6))
+# print('Chords [Cxst,Cxro]=', np.round([[i[4],i[5]] for i in result[5]],6))
 print('Work = {} W'.format(result[1]))
 print('Efficiency = {}'.format(result[0]))
 print('Mass = {} kg'.format(result[2]))
@@ -73,7 +104,7 @@ print('No. Blades = {}'.format(int(result[6])))
 # print('Axial force on rotor = {} N'.format(result[13]))
 # print('Average Re = {}'.format(result[14]))
 # print('Cold-stat, cold-rot, warm-rot, hot-rot:', result[15])
-# print(result[12])
+print(result[12])
 print('')
 if 1 == 2:
     
@@ -109,7 +140,7 @@ if save_geom:
     stages_X2 = []
     stages_blades = []
     z = 0
-    n = 1
+    n = n
     for i in range(n):
         
         a1s, a2s, b2s, b3s = free_vortex(result[10][i], [stages_rm[i], stages_H1[i], stages_H2[i]], stages_phi[i])
@@ -142,7 +173,7 @@ if save_geom:
 
     import csv
     
-    with open('Turbine_geom.csv', mode='w') as turbine_geom:
+    with open('20_stage.csv', mode='w') as turbine_geom:
         turbine_writer = csv.writer(turbine_geom, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
 
         turbine_writer.writerow(stages_blades)
