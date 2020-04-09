@@ -89,7 +89,7 @@ ptc_lim = (0.7, 1.5)
 dh_lim = (1, 5)
 
 calcs = ''
-plot = 'yes'
+plot = ''
 save = ''
 save_geom = True
 start_time = time.time()

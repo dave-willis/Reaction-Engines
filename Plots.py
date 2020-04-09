@@ -1,6 +1,6 @@
 """Calculations for evaluating turbine performance"""
 
-from Turbine import turbine, optimise
+from turbine import turbine, optimise
 import matplotlib.pyplot as plt
 import numpy as np
 import time

@@ -32,8 +32,8 @@ def turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho,
             n, ptc=-1, ain=0, gas='He'):
     """Return the turbine performance and sizing"""
 
-    # If the inputs for phi, psi, Lambda, dho, AR, or ptc ints
-    # constant through the turbine or floats, assume they're
+    # If the inputs for phi, psi, Lambda, dho, AR, or ptc are ints
+    # or floats, assume they'reconstant through the turbine
     if isinstance(phi, (float, int)):
         phi = [phi, phi]
     if isinstance(psi, (float, int)):
@@ -236,8 +236,6 @@ def stage(Po1, To1, del_ho, params, sizes, gas_props, materials):
         find_angs = angles
     # Major sizes
     t, g, r, dim_fs = sizes
-    # Initial guess for the stage work output accounting for tip leakage
-    work = del_ho
     # Calculate angles
     a1, a2, b2, a3, b3 = find_angs(phi, psi, Lambda, a1)
     # Create array of angles needed in the loss function

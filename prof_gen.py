@@ -9,9 +9,9 @@ import scipy.optimize as SciOpt
 from scipy.integrate import simps
 
 
-##############################
-# PROFILE GENERATOR FUNCTIONS#
-##############################
+###############################
+# PROFILE GENERATOR FUNCTIONS #
+###############################
 
 
 def binomial(i, n):
