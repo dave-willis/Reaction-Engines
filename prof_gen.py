@@ -282,7 +282,6 @@ def Profile(X1, X2, TKTE, Cx, points=500, TE_points=200):
     U_theta = np.arccos((XUIN[-1]-TE_circ_cx)/TE_circ_r)
     L_theta = -np.arccos((XLIN[-1]-TE_circ_cx)/TE_circ_r)
 
-    TE_points = 200
     TE_theta = np.linspace(0.95*U_theta, L_theta, TE_points)
     TEx = TE_circ_cx - TE_circ_r*np.cos(np.pi-TE_theta)
     TEy = TE_circ_cy + TE_circ_r*np.sin(np.pi-TE_theta)

@@ -90,7 +90,7 @@ def turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho,
     stage_params = [phi, psi, Lambda, dho, AR, ptc]
     # Set hard limit of 73º on exit angles. Don't account for increase in psi
     # due to leakage here, can remove designs if they're unacceptable later.
-    ang_1 = 0  # Initialise the inlet angle
+    ang_1 = np.radians(ain)  # Initialise the inlet angle
     angle_warning = [False, 0]  # Initialise the angle warning
     for ph, ps, La in zip(phi, psi, Lambda):
         ang_check = find_angs(ph, ps, La, ang_1)
@@ -420,16 +420,17 @@ def stage(Po1, To1, del_ho, params, sizes, gas_props, materials):
             print(('WARNING: STAGE {}: POSSIBLE ROTOR-STATOR CONTACT IN '
                    'TRANSIENT HEATING'.format(stage_n)))
     if stage_n in plotting and transient_analysis:
+        H_bar = (H1+H2+H3)/3
         t_cold = [0, 5]
         t_spin = [5, 10]
         t_cold_rot = [10, 15]
-        c_cold = [cold_stat_g*1000, cold_stat_g*1000]
-        c_spin = [cold_stat_g*1000, cold_rot_g*1000]
-        c_cold_rot = [cold_rot_g*1000, cold_rot_g*1000]
+        c_cold = [cold_stat_g/H_bar, cold_stat_g/H_bar]
+        c_spin = [cold_stat_g/H_bar, cold_rot_g/H_bar]
+        c_cold_rot = [cold_rot_g/H_bar, cold_rot_g/H_bar]
         t_trans = [i+t_cold_rot[-1] for i in t_trans]
-        g_trans = [i*1000 for i in g_trans]
+        g_trans = [i/H_bar for i in g_trans]
         t_hot = [max(t_trans), max(t_trans)+10]
-        c_hot = [g_trans[-1], g_trans[-1]]
+        c_hot = [g_trans[-1]/H_bar, g_trans[-1]/H_bar]
         plt.plot(t_cold, c_cold, 'tab:blue', label='Cold-static')
         plt.plot(t_spin, c_spin, color='black', linestyle='--')
         plt.plot(t_cold_rot, c_cold_rot, 'tab:green', label='Cold-rotating')
@@ -440,7 +441,9 @@ def stage(Po1, To1, del_ho, params, sizes, gas_props, materials):
         plt.ylabel('Change in clearance (mm)', fontsize=20)
         plt.tick_params(axis="x", labelsize=20)
         plt.tick_params(axis="y", labelsize=20)
-
+#        import tikzplotlib
+#        tikzplotlib.save("test.tex")
+        
     expansion_lims = [cold_stat_g, cold_rot_g, warm_rot_g, hot_rot_g,
                       thermal_calc[0], thermal_calc[1]]
     # List of the relevant dimensions
@@ -531,7 +534,7 @@ def losses(angs, vels, states, dimensions, Res):
     secondary_ro = secondary(b2, b3, Cx_ro, H_ro, W3, T3)
     secondary_loss = secondary_st+secondary_ro
     # Add up entropy rises for the stator and rotor and find the overall loss
-    loss_st = profile_st+TE_st+secondary_st+1.0*TC_st
+    loss_st = profile_st+TE_st+secondary_st+1*TC_st
     loss_ro = profile_ro+TE_ro+secondary_ro+TC_ro
     loss = loss_st+loss_ro
     loss_comp = [profile_loss, TE_loss,
@@ -674,7 +677,7 @@ def angles(phi, psi, Lambda, a1):
     # Define coefficients in the quadratic for tan(a3) to keep it clear
     a = Lambda*phi**2
     b = 2*psi*phi
-    c = 2*psi*Lambda-Lambda*(phi*np.tan(np.radians(a1)))**2-2*psi+psi**2
+    c = 2*psi*Lambda-Lambda*(phi*np.tan(a1))**2-2*psi+psi**2
     # Calculate angles, using positive root for a3
     a3 = np.arctan((-b+np.sqrt(b**2-4*a*c))/(2*a))
     a2 = np.arctan(np.tan(a3)+psi/phi)
@@ -1169,8 +1172,8 @@ def optimise(start_turbine):
     phi_lim = (0.1, 1.5)
     psi_lim = (0.4, 3.0)
     Lam_lim = (0, 1)
-    AR_lim = (0.1, 5)
-    dh_lim = (1, 5)
+    AR_lim = (0.4, 3)
+    dh_lim = (1, 1.5)
 
     def turbine_calcs(args):
         """Takes a list of arguments and feeds them to the turbine function"""

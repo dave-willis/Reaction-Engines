@@ -4,6 +4,7 @@ from turbine import turbine, optimise
 import matplotlib.pyplot as plt
 import numpy as np
 import time
+import tikzplotlib
 
 Po1 = 145*10**5
 To1 = 950
@@ -14,8 +15,6 @@ t = 0.0003
 g = 0.0003
 cp = 5187
 gas = 'He'
-del_ho = W/mdot
-To3 = To1-del_ho/cp
 
 phi = [0.272, 0.293]
 psi = [0.778, 0.901]
@@ -26,31 +25,40 @@ n = 10
 ain = 0
 dho = [1.0, 1.106]
 
-# #Properties for representative real turbine
-# Po1 = 5*10**5
-# To1 = 1200
-# W = 8*10**6
-# mdot = 30
-# Omega = 800
-# t = 0.001
-# g = 0.0002
-# cp = 1200
-# gas = 'A1'
-# del_ho = W/mdot
-# To3 = To1-del_ho/cp
+# Properties for representative real turbine
+Po1 = 16*10**5
+To1 = 1500
+W = 15*10**6
+mdot = 32.1
+Omega = 1169
+t = 0.001
+g = 0.0002
+gas = 'A1'
 
-# phi = [0.55, 0.65]
-# psi = [0.9, 0.95]
-# Lambda = [0.5, 0.5]
-# AR = [2, 2]
+# # Optimised parameters
+# phi = [0.22, 0.27]
+# psi = [0.55, 0.65]
+# Lambda = [0.46, 0.51]
+# AR = [0.61, 0.74]
 # ptc = [1.1, 1.1]
-# n = 1
-# dho = [1.0, 1.0]
+# n = 2
+# ain = 0
+# dho = [1.0, 1.21]
 
-plot = 'transient'
+# Actual parameters
+phi = [0.5, 0.55]
+psi = [2.2, 1.8]
+Lambda = [0.19, 0.10]
+AR = [1.6, 1.6]
+ptc = [1.1, 1.1]
+n = 2
+ain = 0
+dho = [1.22, 1.0]
+
+plot = 'mdot'
 save = ''
 start_time = time.time()
-result = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, ain)
+result = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, ain, gas)
 print('Time: {} s'.format(time.time()-start_time))
 print('Work = {} W'.format(result[1]))
 print('Efficiency = {}'.format(result[0]))
@@ -60,16 +68,21 @@ print('No. Blades = {}'.format(int(result[6])))
 print('Axial force on rotor = {} N'.format(result[13]))
 print('Average Re = {}'.format(result[14]))
 # print('Cold-stat, cold-rot, warm-rot, hot-rot:', result[15])
-
-loss_norm = (To1-W/mdot/5187)*mdot/W
+To3=result[9]
+loss_norm = To3*mdot/W
 
 if plot == 'transient':
 
-    cold_stat = [i[0]*1000 for i in result[15]]
-    cold_rot = [i[1]*1000 for i in result[15]]
-    warm = [i[2]*1000 for i in result[15]]
-    hot = [i[3]*1000 for i in result[15]]
-    
+    H_bar = [(i[1]+i[2]+i[3])/3 for i in result[5]]
+    cold_stat=[]
+    cold_rot=[]
+    warm=[]
+    hot=[]
+    for i in range(n):
+        cold_stat.append(result[15][i][0]/H_bar[i])
+        cold_rot.append(result[15][i][1]/H_bar[i])
+        warm.append(result[15][i][2]/H_bar[i])
+        hot.append(result[15][i][3]/H_bar[i])
     x = np.arange(1, n+1)  # the label locations
     width = 0.2  # the width of the bars
     fig, ax = plt.subplots()
@@ -84,7 +97,40 @@ if plot == 'transient':
     ax.legend(prop={'size': 18})
     ax.tick_params(axis="x", labelsize=20)
     ax.tick_params(axis="y", labelsize=20)
+    tikzplotlib.save("test2.tex")
     fig.tight_layout()
+    
+if plot == 'mdot':
+
+    te = []
+    profile = []
+    secondary = []
+    tc = []
+    ms = np.arange(16,61,1)
+    
+    for md in ms:
+        
+        result = turbine(Po1, To1, md, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, ain, gas)
+        To3=result[9]
+        loss_norm = To3*mdot/W
+        profile.append(loss_norm*result[7][0])
+        te.append(loss_norm*result[7][1])
+        secondary.append(loss_norm*result[7][2])
+        tc.append(loss_norm*result[7][3])
+    
+    plt.figure()
+    plt.plot(ms, profile, label='Profile', linewidth = 3)
+    plt.plot(ms, te, label='Trailing edge', linewidth = 3)
+    plt.plot(ms, secondary, label='Secondary', linewidth = 3)
+    plt.plot(ms, tc, label='Shroud', linewidth = 3)
+    plt.xlabel('$\\dot{m}$', fontsize=35)
+    plt.ylabel('$\\frac{T_{out}\Delta s}{\Delta h_0}$', fontsize=35)
+    plt.tick_params(axis="x", labelsize=30)
+    plt.tick_params(axis="y", labelsize=30)
+    plt.legend(prop={'size':33})
+    tikzplotlib.save("test.tex")
+    # plt.yscale('log')
+    plt.show()
 
 if plot == 'opt':
     
@@ -114,7 +160,7 @@ if plot == 'opt':
     
     for n in range(5,26):
         
-        result = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, ain)
+        result = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, ain, gas)
         
         ph, ps, Lam, ar, dh = optimise(result)
         
@@ -248,7 +294,7 @@ if plot == 'mechs':
     
     for ph in np.arange(0.2,1.0,0.05):
         
-        result = turbine(Po1, To1, mdot, Omega, W, t, g, ph, psi, Lambda, AR, dho, n, ptc, ain)
+        result = turbine(Po1, To1, mdot, Omega, W, t, g, ph, psi, Lambda, AR, dho, n, ptc, ain,gas)
         
         profile.append(loss_norm*result[7][0])
         te.append(loss_norm*result[7][1])
@@ -337,7 +383,7 @@ if plot == 'mechs':
         te.append(loss_norm*result[7][1])
         secondary.append(loss_norm*result[7][2])
         tc.append(loss_norm*result[7][3])
-        
+    
     plt.figure()
     plt.plot(np.arange(0.4,2,0.05), profile, label='Profile', linewidth = 3)
     plt.plot(np.arange(0.4,2,0.05), te, label='Trailing edge', linewidth = 3)

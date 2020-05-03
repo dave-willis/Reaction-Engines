@@ -70,37 +70,36 @@ dho = [1.0, 1.11]
 # ain = 0
 # dho = [1.0, 1.11]
 
-# #Properties for representative real turbine
-Po1 = 16*10**5
-To1 = 1500
-W = 15*10**6
-mdot = 32.1
-Omega = 1169
-t = 0.001
-g = 0.0002
-gas = 'A1'
-cp = 1200
-del_ho = W/mdot
-To3 = To1-del_ho/cp
+# # #Properties for representative real turbine
+# Po1 = 16*10**5
+# To1 = 1500
+# W = 15*10**6
+# mdot = 32.1
+# Omega = 1169
+# t = 0.001
+# g = 0.0002
+# cp = 1200
+# gas = 'A1'
+# del_ho = W/mdot
+# To3 = To1-del_ho/cp
 
 # # Optimised parameters
 # phi = [0.22, 0.27]
 # psi = [0.55, 0.65]
 # Lambda = [0.46, 0.51]
-# AR = [0.57, 0.61]
+# AR = [0.61, 0.74]
 # ptc = [1.1, 1.1]
 # n = 2
-# ain = 10
-# dho = [1.0, 1.21]
+# dho = [1.0, 1.18]
 
-# Actual parameters
-phi = [0.5, 0.55]
-psi = [2.2, 1.8]
-Lambda = [0.19, 0.10]
-AR = [1.6, 1.6]
-ptc = [1.1, 1.1]
-n = 2
-dho = [1.22, 1.0]
+# # Actual parameters
+# phi = [0.5, 0.55]
+# psi = [2.2, 1.8]
+# Lambda = [0.19, 0.10]
+# AR = [1.6, 1.6]
+# ptc = [1.1, 1.1]
+# n = 2
+# dho = [1.22, 1.0]
 
 phi_lim = (0.1, 1.5)
 psi_lim = (0.4, 3.0)
@@ -116,12 +115,13 @@ save_geom = False
 start_time = time.time()
 result = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, ain, gas)
 print('Time: {} s'.format(time.time()-start_time))
+# print('Angles [a1,a2,b2,a3,b3]=', np.round(result[10],2))
+# print('Chords [Cxst,Cxro]=', np.round([[i[4],i[5]] for i in result[5]],4))
 print('Work = {} W'.format(result[1]))
 print('Efficiency = {}'.format(result[0]))
 print('Mass = {} kg'.format(result[2]))
-print('Volume = {} m^3'.format(result[3]))
 print('No. Blades = {}'.format(int(result[6])))
-print('Axial force on rotor = {} N'.format(result[13]))
+# print('Axial force on rotor = {} N'.format(result[13]))
 print('Average Re = {}'.format(result[14]))
 # print('Cold-stat, cold-rot, warm-rot, hot-rot:', result[15])
 print(result[12])
@@ -210,7 +210,7 @@ if plot == 'yes':
     from GUI import b2b_variable, b2b_plot, annulus
     # b2b_variable(result)
     b2b_plot(result)
-    annulus(result)
+    # annulus(result)
 
 if calcs == 'brute force':
     start_time = time.time()

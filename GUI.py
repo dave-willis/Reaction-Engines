@@ -38,16 +38,16 @@ def b2b_data(turbine_data):
     tTE = turbine_data[11][5]
     n = turbine_data[11][12]
     # Number of points per blade plot
-    points = 500
-    TE_points = 200
+    point = 500
+    TE_point = 200
     # Scale the outputs for m/cm/mm etc
     scale = 1000
     # Initialise values
     L = 0
     # Array size set by the maximum number of stages
     max_stages = 30
-    x = np.zeros([4*max_stages, 2*points+TE_points])
-    y = np.zeros([4*max_stages, 2*points+TE_points])
+    x = np.zeros([4*max_stages, 2*point+TE_point])
+    y = np.zeros([4*max_stages, 2*point+TE_point])
     # Loop over every stage
     for i in range(n):
         # Extract stage parameters
@@ -67,14 +67,14 @@ def b2b_data(turbine_data):
         else:
             L += Cxst*1.5+Cxro*1.5
         # Pass parameters to profile function for stator
-        *_, X, Y = Profile(a1, a2, tTE, Cxst, points, TE_points)
+        *_, X, Y = Profile(a1, a2, tTE, Cxst, points=point, TE_points=TE_point)
         # Store results
         x[4*i] = [j+x0st for j in X]
         y[4*i] = Y
         x[4*i+1] = [j+x0st for j in X]
         y[4*i+1] = [j+Cxst*ptcst for j in Y]
         # Pass parameters to profile function for rotor
-        *_, X, Y = Profile(b2, b3, tTE, Cxro, points)
+        *_, X, Y = Profile(b2, b3, tTE, Cxro, point, TE_points=TE_point)
         # Store results
         x[4*i+2] = [j+x0ro for j in X]
         y[4*i+2] = Y
@@ -410,7 +410,7 @@ def annulus(turbine_data):
     """Plot annulus size through the turbine"""
 
     # Extract values form turbine function output
-    chords = [[i[3], i[4]] for i in turbine_data[5]]
+    chords = [[i[4], i[5]] for i in turbine_data[5]]
     H1s = [i[1] for i in turbine_data[5]]
     H2s = [i[2] for i in turbine_data[5]]
     H3s = [i[3] for i in turbine_data[5]]
@@ -430,6 +430,7 @@ def annulus(turbine_data):
     for i in range(n):
         # Extract stage parameters
         Cxst, Cxro = chords[i]
+        print(Cxst, Cxro)
         # Hub line including shroud cavity for stator
         hub1x = length+0.125*Cxst-g/2
         hub2x = hub1x
