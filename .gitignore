@@ -4,6 +4,7 @@ Rework/
 Old\ code/
 *.gcx
 *.log
+*.tex
 Throughflow/
 .spyproject/
 Turbine_geom.csv
