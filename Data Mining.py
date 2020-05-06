@@ -20,25 +20,25 @@ gas = 'He'
 del_ho = W/mdot
 To3 = To1-del_ho/cp
 
-# # n = 5
-# phi = [0.28, 0.32]
-# psi = [0.83, 1.08]
-# Lambda = [0.50, 0.52]
-# AR = [0.48, 0.62]
-# ptc = [1.1, 1.1]
 # n = 5
-# ain = 0
-# dho = [1.00, 1.11]
+phi = [0.28, 0.32]
+psi = [0.83, 1.08]
+Lambda = [0.50, 0.52]
+AR = [0.48, 0.62]
+ptc = [1.1, 1.1]
+n = 6
+ain = 0
+dho = [1.00, 1.11]
 
 # n = 10
-phi = [0.27, 0.29]
-psi = [0.78, 0.90]
-Lambda = [0.50, 0.51]
-AR = [0.64, 0.80]
-ptc = [1.1, 1.1]
-n = 10
-ain = 0
-dho = [1.0, 1.11]
+# phi = [0.27, 0.29]
+# psi = [0.78, 0.90]
+# Lambda = [0.50, 0.51]
+# AR = [0.64, 0.80]
+# ptc = [1.1, 1.1]
+# n = 10
+# ain = 0
+# dho = [1.0, 1.11]
 
 # # n = 10, opt
 # phi = [0.31, 0.33]
@@ -71,17 +71,17 @@ dho = [1.0, 1.11]
 # dho = [1.0, 1.11]
 
 # #Properties for representative real turbine
-Po1 = 16*10**5
-To1 = 1500
-W = 15*10**6
-mdot = 32.1
-Omega = 1169
-t = 0.001
-g = 0.0002
-gas = 'A1'
-cp = 1200
-del_ho = W/mdot
-To3 = To1-del_ho/cp
+# Po1 = 16*10**5
+# To1 = 1500
+# W = 15*10**6
+# mdot = 32.1
+# Omega = 1169
+# t = 0.001
+# g = 0.0002
+# gas = 'A1'
+# cp = 1200
+# del_ho = W/mdot
+# To3 = To1-del_ho/cp
 
 # # Optimised parameters
 # phi = [0.22, 0.27]
@@ -93,14 +93,14 @@ To3 = To1-del_ho/cp
 # ain = 10
 # dho = [1.0, 1.21]
 
-# Actual parameters
-phi = [0.5, 0.55]
-psi = [2.2, 1.8]
-Lambda = [0.19, 0.10]
-AR = [1.6, 1.6]
-ptc = [1.1, 1.1]
-n = 2
-dho = [1.22, 1.0]
+# # Actual parameters
+# phi = [0.5, 0.55]
+# psi = [2.2, 1.8]
+# Lambda = [0.19, 0.10]
+# AR = [1.6, 1.6]
+# ptc = [1.1, 1.1]
+# n = 2
+# dho = [1.22, 1.0]
 
 phi_lim = (0.1, 1.5)
 psi_lim = (0.4, 3.0)
@@ -109,7 +109,7 @@ AR_lim = (0.1, 5)
 ptc_lim = (0.7, 1.5)
 dh_lim = (1, 1.5)
 
-calcs = ''
+calcs = 'opt1'
 plot = ''
 save = ''
 save_geom = False
@@ -120,6 +120,7 @@ print('Work = {} W'.format(result[1]))
 print('Efficiency = {}'.format(result[0]))
 print('Mass = {} kg'.format(result[2]))
 print('Volume = {} m^3'.format(result[3]))
+print('H1s: {}'.format([i[1] for i in result[5]]))
 print('No. Blades = {}'.format(int(result[6])))
 print('Axial force on rotor = {} N'.format(result[13]))
 print('Average Re = {}'.format(result[14]))
@@ -310,7 +311,7 @@ if calcs == 'opt1':
         from GUI import b2b_variable, b2b_plot, annulus
         # b2b_plot(turbine_data)
         annulus(turbine_data)
-        
+            
 if calcs == 'optall':
     
     start=time.time()

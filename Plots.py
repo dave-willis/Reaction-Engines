@@ -26,14 +26,14 @@ ain = 0
 dho = [1.0, 1.106]
 
 # Properties for representative real turbine
-Po1 = 16*10**5
-To1 = 1500
-W = 15*10**6
-mdot = 32.1
-Omega = 1169
-t = 0.001
-g = 0.0002
-gas = 'A1'
+# Po1 = 16*10**5
+# To1 = 1500
+# W = 15*10**6
+# mdot = 32.1
+# Omega = 1169
+# t = 0.001
+# g = 0.0002
+# gas = 'A1'
 
 # # Optimised parameters
 # phi = [0.22, 0.27]
@@ -45,17 +45,17 @@ gas = 'A1'
 # ain = 0
 # dho = [1.0, 1.21]
 
-# Actual parameters
-phi = [0.5, 0.55]
-psi = [2.2, 1.8]
-Lambda = [0.19, 0.10]
-AR = [1.6, 1.6]
-ptc = [1.1, 1.1]
-n = 2
-ain = 0
+# # Actual parameters
+# phi = [0.5, 0.55]
+# psi = [2.2, 1.8]
+# Lambda = [0.19, 0.10]
+# AR = [1.6, 1.6]
+# ptc = [1.1, 1.1]
+# n = 2
+# ain = 0
 dho = [1.22, 1.0]
 
-plot = 'mdot'
+plot = 'opt'
 save = ''
 start_time = time.time()
 result = turbine(Po1, To1, mdot, Omega, W, t, g, phi, psi, Lambda, AR, dho, n, ptc, ain, gas)
@@ -165,6 +165,19 @@ if plot == 'opt':
         ph, ps, Lam, ar, dh = optimise(result)
         
         turbine_data = turbine(Po1, To1, mdot, Omega, W, t, g, ph, ps, Lam, ar, dh, n, ptc, ain)
+        
+        if 1 == 2:
+            dims = turbine_data[5]
+        
+            d_hubin = [2*i[9] for i in dims]
+            d_hubout = [2*(i[0]-i[2]/2) for i in dims]
+            d_casout = [2*i[8] for i in dims]
+            d_casin = [2*(i[0]+i[2]/2) for i in dims]
+            length = [1.5*(i[4]+i[5]) for i in dims]
+            
+            np.savez('Dims {}'.format(n), d_hubin, d_hubout, d_casin, d_casout, length)
+
+        
         n_blades.append(turbine_data[6])
         Re.append(turbine_data[14]/100000)
         Fx.append(turbine_data[13])
