@@ -38,8 +38,8 @@ def b2b_data(turbine_data):
     tTE = turbine_data[11][5]
     n = turbine_data[11][12]
     # Number of points per blade plot
-    point = 500
-    TE_point = 200
+    point = 200
+    TE_point = 50
     # Scale the outputs for m/cm/mm etc
     scale = 1000
     # Initialise values

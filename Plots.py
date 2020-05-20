@@ -25,6 +25,15 @@ n = 10
 ain = 0
 dho = [1.0, 1.106]
 
+# phi = [0.28, 0.32]
+# psi = [0.83, 1.08]
+# Lambda = [0.50, 0.52]
+# AR = [0.48, 0.62]
+# ptc = [1.1, 1.1]
+# n = 5
+# ain = 0
+# dho = [1.00, 1.11]
+
 # Properties for representative real turbine
 # Po1 = 16*10**5
 # To1 = 1500
@@ -168,14 +177,19 @@ if plot == 'opt':
         
         if 1 == 2:
             dims = turbine_data[5]
+            angs = turbine_data[10]
         
             d_hubin = [2*i[9] for i in dims]
             d_hubout = [2*(i[0]-i[2]/2) for i in dims]
             d_casout = [2*i[8] for i in dims]
             d_casin = [2*(i[0]+i[2]/2) for i in dims]
             length = [1.5*(i[4]+i[5]) for i in dims]
+            a1 = [i[0] for i in angs]
+            a2 = [i[1] for i in angs]
+            b1 = [i[2] for i in angs]
+            b2 = [i[4] for i in angs]
             
-            np.savez('Dims {}'.format(n), d_hubin, d_hubout, d_casin, d_casout, length)
+            np.savez('Dims {}'.format(n), d_hubin, d_hubout, d_casin, d_casout, length, a1, a2, b1, b2)
 
         
         n_blades.append(turbine_data[6])

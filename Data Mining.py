@@ -26,11 +26,12 @@ psi = [0.83, 1.08]
 Lambda = [0.50, 0.52]
 AR = [0.48, 0.62]
 ptc = [1.1, 1.1]
-n = 6
+n = 7
 ain = 0
 dho = [1.00, 1.11]
 
-# n = 10
+
+# # n = 10
 # phi = [0.27, 0.29]
 # psi = [0.78, 0.90]
 # Lambda = [0.50, 0.51]
@@ -69,6 +70,17 @@ dho = [1.00, 1.11]
 # n = 20
 # ain = 0
 # dho = [1.0, 1.11]
+
+# # n = 25
+# phi = [0.26, 0.27]
+# psi = [0.67, 0.69]
+# Lambda = [0.49, 0.54]
+# AR = [0.93, 1.09]
+# ptc = [1.1, 1.1]
+# n = 25
+# ain = 0
+# dho = [1.0, 1.11]
+
 
 # #Properties for representative real turbine
 # Po1 = 16*10**5
@@ -120,6 +132,7 @@ print('Work = {} W'.format(result[1]))
 print('Efficiency = {}'.format(result[0]))
 print('Mass = {} kg'.format(result[2]))
 print('Volume = {} m^3'.format(result[3]))
+print('Angles: {}'.format(result[10]))
 print('H1s: {}'.format([i[1] for i in result[5]]))
 print('No. Blades = {}'.format(int(result[6])))
 print('Axial force on rotor = {} N'.format(result[13]))
@@ -210,7 +223,7 @@ if save_geom:
 if plot == 'yes':
     from GUI import b2b_variable, b2b_plot, annulus
     # b2b_variable(result)
-    b2b_plot(result)
+    # b2b_plot(result)
     annulus(result)
 
 if calcs == 'brute force':
@@ -331,7 +344,7 @@ if calcs == 'optall':
         for j in phi_set:
             phis[n_phi] = [i, j]
             n_phi += 1
-   
+       
     n_psi = 0
     for i in psi_set:
         for j in psi_set:
@@ -343,7 +356,7 @@ if calcs == 'optall':
         for j in Lambda_set:
             Lambdas[n_Lambda] = [i, j]
             n_Lambda += 1
-
+    
     n_dh = 0
     for i in dh_set:
         for j in dh_set:

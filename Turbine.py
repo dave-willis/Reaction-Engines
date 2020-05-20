@@ -443,7 +443,6 @@ def stage(Po1, To1, del_ho, params, sizes, gas_props, materials):
         plt.tick_params(axis="y", labelsize=20)
 #        import tikzplotlib
 #        tikzplotlib.save("test.tex")
-        
     expansion_lims = [cold_stat_g, cold_rot_g, warm_rot_g, hot_rot_g,
                       thermal_calc[0], thermal_calc[1]]
     # List of the relevant dimensions
