@@ -421,15 +421,15 @@ def stage(Po1, To1, del_ho, params, sizes, gas_props, materials):
                    'TRANSIENT HEATING'.format(stage_n)))
     if stage_n in plotting and transient_analysis:
         H_bar = (H1+H2+H3)/3
-        t_cold = [0, 5]
-        t_spin = [5, 10]
-        t_cold_rot = [10, 15]
+        t_cold = [-15/tau_ro, -10/tau_ro]
+        t_spin = [-10/tau_ro, -5/tau_ro]
+        t_cold_rot = [-5/tau_ro, 0]
         c_cold = [cold_stat_g/H_bar, cold_stat_g/H_bar]
         c_spin = [cold_stat_g/H_bar, cold_rot_g/H_bar]
         c_cold_rot = [cold_rot_g/H_bar, cold_rot_g/H_bar]
-        t_trans = [i+t_cold_rot[-1] for i in t_trans]
+        t_trans = [i/tau_ro for i in t_trans]
         g_trans = [i/H_bar for i in g_trans]
-        t_hot = [max(t_trans), max(t_trans)+10]
+        t_hot = [10, 10+10/tau_ro]
         c_hot = [g_trans[-1]/H_bar, g_trans[-1]/H_bar]
         plt.plot(t_cold, c_cold, 'tab:blue', label='Cold-static')
         plt.plot(t_spin, c_spin, color='black', linestyle='--')
@@ -437,12 +437,12 @@ def stage(Po1, To1, del_ho, params, sizes, gas_props, materials):
         plt.plot(t_trans, g_trans, 'tab:orange', label='Warm transient')
         plt.plot(t_hot, c_hot, 'tab:red', label='Hot soaked')
         plt.legend(prop={'size': 18})
-        plt.xlabel('Time (s)', fontsize=20)
-        plt.ylabel('Change in clearance (mm)', fontsize=20)
+        plt.xlabel('\\frac{t}{\\tau_h}', fontsize=20)
+        plt.ylabel('\\frac{\\Delta g}{b}', fontsize=20)
         plt.tick_params(axis="x", labelsize=20)
         plt.tick_params(axis="y", labelsize=20)
-#        import tikzplotlib
-#        tikzplotlib.save("test.tex")
+        # import tikzplotlib
+        # tikzplotlib.save("test.tex")
     expansion_lims = [cold_stat_g, cold_rot_g, warm_rot_g, hot_rot_g,
                       thermal_calc[0], thermal_calc[1]]
     # List of the relevant dimensions
